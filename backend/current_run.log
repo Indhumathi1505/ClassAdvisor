@@ -1,0 +1,79 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.2)
+
+2026-01-24T17:53:17.938+05:30  INFO 52856 --- [class-advisor-backend] [           main] c.classadvisor.ClassAdvisorApplication   : Starting ClassAdvisorApplication v0.0.1-SNAPSHOT using Java 22.0.2 with PID 52856 (C:\Users\indhu\Downloads\class-advisor-pro\backend\target\backend-0.0.1-SNAPSHOT.jar started by indhu in C:\Users\indhu\Downloads\class-advisor-pro\backend)
+2026-01-24T17:53:17.943+05:30  INFO 52856 --- [class-advisor-backend] [           main] c.classadvisor.ClassAdvisorApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-01-24T17:53:19.702+05:30  INFO 52856 --- [class-advisor-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-01-24T17:53:19.866+05:30  INFO 52856 --- [class-advisor-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 134 ms. Found 6 JPA repository interfaces.
+2026-01-24T17:53:21.334+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-01-24T17:53:21.365+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-01-24T17:53:21.366+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.18]
+2026-01-24T17:53:21.467+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/api]    : Initializing Spring embedded WebApplicationContext
+2026-01-24T17:53:21.469+05:30  INFO 52856 --- [class-advisor-backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 3387 ms
+2026-01-24T17:53:21.905+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-01-24T17:53:22.072+05:30  INFO 52856 --- [class-advisor-backend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.1.Final
+2026-01-24T17:53:22.180+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-01-24T17:53:22.681+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-01-24T17:53:22.744+05:30  INFO 52856 --- [class-advisor-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-01-24T17:53:23.628+05:30  INFO 52856 --- [class-advisor-backend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@3be80ece
+2026-01-24T17:53:23.635+05:30  INFO 52856 --- [class-advisor-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-01-24T17:53:23.761+05:30  WARN 52856 --- [class-advisor-backend] [           main] org.hibernate.orm.deprecation            : HHH90000025: MySQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-01-24T17:53:25.495+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-01-24T17:53:25.590+05:30  INFO 52856 --- [class-advisor-backend] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-01-24T17:53:26.750+05:30  WARN 52856 --- [class-advisor-backend] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-01-24T17:53:27.735+05:30  INFO 52856 --- [class-advisor-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/api'
+2026-01-24T17:53:27.776+05:30  INFO 52856 --- [class-advisor-backend] [           main] c.classadvisor.ClassAdvisorApplication   : Started ClassAdvisorApplication in 11.169 seconds (process running for 12.514)
+2026-01-24T17:53:31.272+05:30  INFO 52856 --- [class-advisor-backend] [nio-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/api]    : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-01-24T17:53:31.273+05:30  INFO 52856 --- [class-advisor-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-01-24T17:53:31.275+05:30  INFO 52856 --- [class-advisor-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0 where s1_0.register_number=?
+Hibernate: insert into students (name,parent_whats_app,roll_number,register_number) values (?,?,?,?)
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0 where s1_0.register_number=?
