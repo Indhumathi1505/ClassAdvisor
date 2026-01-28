@@ -6,8 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+import java.util.Optional;
+
 @Repository
 public interface MasterAttendanceRecordRepository extends JpaRepository<MasterAttendanceRecord, Long> {
     List<MasterAttendanceRecord> findByStudentRegNo(String studentRegNo);
+    Optional<MasterAttendanceRecord> findByStudentRegNoAndSemesterIdAndInternalId(String studentRegNo, Integer semesterId, Integer internalId);
     void deleteByStudentRegNo(String studentRegNo);
 }

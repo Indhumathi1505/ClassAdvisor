@@ -1,7 +1,9 @@
 com\classadvisor\service\DataService.class
 com\classadvisor\dto\AppStateDTO$ConfigDTO.class
 com\classadvisor\entity\MasterAttendanceRecord.class
+com\classadvisor\entity\SemesterGrade.class
 com\classadvisor\entity\AttendanceRecord.class
+com\classadvisor\repository\SemesterGradeRepository.class
 com\classadvisor\ClassAdvisorApplication.class
 com\classadvisor\controller\ApiController.class
 com\classadvisor\entity\Student.class

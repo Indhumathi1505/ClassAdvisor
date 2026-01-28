@@ -1,6 +1,6 @@
 const API_BASE_URL = '/api';
 
-import { AppState, Student, Subject, MarkRecord, LabMarkRecord, MasterAttendanceRecord, AttendanceRecord } from './types';
+import { AppState, Student, Subject, MarkRecord, LabMarkRecord, MasterAttendanceRecord, AttendanceRecord, SemesterGrade } from './types';
 
 export const api = {
   // Fetch entire state
@@ -86,4 +86,23 @@ export const api = {
     if (!response.ok) throw new Error('Failed to save attendance');
     return response.json();
   },
+
+  uploadGrades: async (file: File, semesterId: number): Promise<SemesterGrade[]> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('semesterId', semesterId.toString());
+
+    const response = await fetch(`${API_BASE_URL}/upload-grades`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to upload grades');
+    return response.json();
+  },
+
+  fetchMyGrades: async (regNo: string): Promise<SemesterGrade[]> => {
+    const response = await fetch(`${API_BASE_URL}/my-grades/${regNo}`);
+    if (!response.ok) throw new Error('Failed to fetch student grades');
+    return response.json();
+  }
 };

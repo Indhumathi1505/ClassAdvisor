@@ -48,7 +48,7 @@ const App: React.FC = () => {
       case UserRole.ADVISOR:
         return <AdvisorDashboard state={state} updateState={updateState} onLogout={handleLogout} />;
       case UserRole.STAFF:
-        return <StaffDashboard state={state} updateState={updateState} staffName={currentUser.identifier} onLogout={handleLogout} />;
+        return <StaffDashboard state={state} updateState={updateState} staffName={currentUser.identifier} loginSubject={currentUser.data} onLogout={handleLogout} />;
       case UserRole.STUDENT:
         return <StudentDashboard state={state} studentRegNo={currentUser.identifier} onLogout={handleLogout} />;
       default:
@@ -58,7 +58,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <nav className="bg-indigo-700 text-white px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+      <nav className="bg-brand-primary text-white px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white/20 rounded-lg">
             <GraduationCap className="w-6 h-6" />

@@ -1,6 +1,8 @@
 package com.classadvisor.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,5 +24,8 @@ public class MarkRecord {
     private String subjectId;
     private Integer semesterId;
     private Integer internalId;
+    
+    @Min(value = 0, message = "Marks must be at least 0")
+    @Max(value = 100, message = "Marks must not exceed 100")
     private Double marks;
 }

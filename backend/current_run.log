@@ -77,3 +77,31 @@ Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester
 Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0 where s1_0.register_number=?
 Hibernate: insert into students (name,parent_whats_app,roll_number,register_number) values (?,?,?,?)
 Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0 where s1_0.register_number=?
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select s1_0.register_number,s1_0.name,s1_0.parent_whats_app,s1_0.roll_number from students s1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select s1_0.id,s1_0.assigned_staff,s1_0.code,s1_0.name,s1_0.semester_id,s1_0.staff_password from subjects s1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select mr1_0.id,mr1_0.internal_id,mr1_0.marks,mr1_0.semester_id,mr1_0.student_reg_no,mr1_0.subject_id from mark_records mr1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select lmr1_0.id,lmr1_0.internal_id,lmr1_0.marks,lmr1_0.semester_id,lmr1_0.student_reg_no,lmr1_0.subject_id from lab_mark_records lmr1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+Hibernate: select ar1_0.id,ar1_0.internal_id,ar1_0.percentage,ar1_0.semester_id,ar1_0.student_reg_no,ar1_0.subject_id from attendance_records ar1_0
+Hibernate: select mar1_0.id,mar1_0.internal_id,mar1_0.percentage,mar1_0.semester_id,mar1_0.student_reg_no from master_attendance_records mar1_0
+2026-01-24T18:52:31.449+05:30  WARN 52856 --- [class-advisor-backend] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=44m36s112ms659µs800ns).
+2026-01-24T19:06:18.157+05:30  WARN 52856 --- [class-advisor-backend] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=11m44s570ms502µs400ns).
+2026-01-24T19:18:03.027+05:30  WARN 52856 --- [class-advisor-backend] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=9m44s830ms776µs300ns).
+2026-01-24T19:38:58.463+05:30  WARN 52856 --- [class-advisor-backend] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=55s89ms910µs300ns).

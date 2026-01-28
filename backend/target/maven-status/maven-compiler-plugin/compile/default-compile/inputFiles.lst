@@ -1,5 +1,6 @@
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\MasterAttendanceRecord.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\MarkRecordRepository.java
+C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\SemesterGradeRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\LabMarkRecord.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\Subject.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\AttendanceRecord.java
@@ -11,6 +12,7 @@ C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadviso
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\AttendanceRecordRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\service\DataService.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\dto\AppStateDTO.java
+C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\SemesterGrade.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\StudentRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\ClassAdvisorApplication.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\LabMarkRecordRepository.java

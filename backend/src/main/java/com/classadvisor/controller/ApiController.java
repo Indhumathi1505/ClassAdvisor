@@ -5,6 +5,9 @@ import com.classadvisor.entity.*;
 import com.classadvisor.service.DataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -58,5 +61,15 @@ public class ApiController {
     @PostMapping("/master-attendance")
     public MasterAttendanceRecord saveMasterAttendance(@RequestBody MasterAttendanceRecord record) {
         return dataService.saveMasterAttendance(record);
+    }
+
+    @PostMapping("/upload-grades")
+    public List<SemesterGrade> uploadGrades(@RequestParam("file") MultipartFile file, @RequestParam("semesterId") Integer semesterId) throws IOException {
+        return dataService.processSemesterGradePDF(file, semesterId);
+    }
+
+    @GetMapping("/my-grades/{regNo}")
+    public List<SemesterGrade> getMyGrades(@PathVariable String regNo) {
+        return dataService.getStudentGrades(regNo);
     }
 }

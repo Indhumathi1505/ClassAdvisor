@@ -12,6 +12,7 @@ public class AppStateDTO {
     private List<LabMarkRecord> labMarks;
     private List<AttendanceRecord> attendance;
     private List<MasterAttendanceRecord> masterAttendance;
+    private List<SemesterGrade> semesterGrades;
     private ConfigDTO config;
 
     @Data

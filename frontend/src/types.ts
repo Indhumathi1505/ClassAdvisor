@@ -53,6 +53,14 @@ export interface MasterAttendanceRecord {
   percentage: number;
 }
 
+export interface SemesterGrade {
+  id?: number;
+  studentRegNo: string;
+  semesterId: number;
+  results: string; // JSON string
+  pdfPath?: string;
+}
+
 export interface AppState {
   students: Student[];
   subjects: Subject[];
@@ -60,6 +68,7 @@ export interface AppState {
   labMarks: LabMarkRecord[];
   attendance: AttendanceRecord[];
   masterAttendance: MasterAttendanceRecord[];
+  semesterGrades: SemesterGrade[];
   config: {
     years: number;
     semesters: number;
