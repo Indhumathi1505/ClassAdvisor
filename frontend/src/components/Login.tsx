@@ -89,11 +89,11 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
             <ShieldCheck className="w-8 h-8 text-brand-primary" />
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Class Advisor Portal</h2>
-          <p className="text-gray-500 text-sm">Access Management System</p>
+          <p className="text-gray-300 text-sm">Access Management System</p>
         </div>
 
         {/* ROLE SWITCH */}
-        <div className="mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+        <div className="mb-2 text-xs font-bold text-gray-300 uppercase tracking-wider">
           Portal Access Role
         </div>
         <div className="flex bg-[#0b0f19] p-1.5 rounded-xl mb-8 border border-gray-800">
@@ -101,7 +101,7 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
             onClick={() => { setRole(UserRole.STUDENT); setError(''); }}
             className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.STUDENT
               ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
-              : 'text-gray-500 hover:text-gray-400'
+              : 'text-gray-400 hover:text-gray-200'
               }`}
           >
             Student
@@ -111,7 +111,7 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
             onClick={() => { setRole(UserRole.STAFF); setError(''); }}
             className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.STAFF
               ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
-              : 'text-gray-500 hover:text-gray-400'
+              : 'text-gray-400 hover:text-gray-200'
               }`}
           >
             Faculty
@@ -121,7 +121,7 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
             onClick={() => { setRole(UserRole.ADVISOR); setError(''); }}
             className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.ADVISOR
               ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
-              : 'text-gray-500 hover:text-gray-400'
+              : 'text-gray-400 hover:text-gray-200'
               }`}
           >
             Advisor
@@ -134,13 +134,13 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
           {role !== UserRole.STAFF && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">
+                <label className="block text-xs font-medium text-gray-300 mb-2">
                   {role === UserRole.STUDENT
                     ? 'Student Register Number'
                     : 'Advisor Username'}
                 </label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-brand-primary transition-colors" />
                   <input
                     type="text"
                     required
@@ -148,18 +148,18 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
                     focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
-                    outline-none transition-all text-sm text-gray-200 placeholder-gray-600"
+                    outline-none transition-all text-sm text-white placeholder-gray-500"
                     placeholder={role === UserRole.STUDENT ? "Enter Reg No" : "Enter Name"}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">
+                <label className="block text-xs font-medium text-gray-300 mb-2">
                   {role === UserRole.STUDENT ? 'Roll Number' : 'Password'}
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-brand-primary transition-colors" />
                   <input
                     type="password"
                     required
@@ -167,7 +167,7 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
                     focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
-                    outline-none transition-all text-sm text-gray-200 placeholder-gray-600 tracking-widest"
+                    outline-none transition-all text-sm text-white placeholder-gray-500 tracking-widest"
                     placeholder="••••••••"
                   />
                 </div>
@@ -179,41 +179,41 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
             <div className="space-y-5">
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">
+                <label className="block text-xs font-medium text-gray-300 mb-2">
                   Faculty Name
                 </label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-brand-primary transition-colors" />
                   <select
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
                     focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
-                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                    outline-none transition-all text-sm text-white appearance-none select-white"
                   >
-                    <option value="">Select Staff Name</option>
+                    <option value="" className="bg-[#131b2e] text-white">Select Staff Name</option>
                     {[...new Set(filteredStaff.map(s => s.name))].map((name, idx) => (
-                      <option key={idx} value={name}>{name}</option>
+                      <option key={idx} value={name} className="bg-[#131b2e] text-white">{name}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">
+                <label className="block text-xs font-medium text-gray-300 mb-2">
                   Semester
                 </label>
                 <div className="relative group">
-                  <Layers className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <Layers className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-brand-primary transition-colors" />
                   <select
                     value={semester}
                     onChange={(e) => setSemester(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
                     focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
-                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                    outline-none transition-all text-sm text-white appearance-none select-white"
                   >
                     {[...Array(8)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>
+                      <option key={i + 1} value={i + 1} className="bg-[#131b2e] text-white">
                         Semester {i + 1}
                       </option>
                     ))}
@@ -222,26 +222,36 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">
+                <label className="block text-xs font-medium text-gray-300 mb-2">
                   Select Subject
                 </label>
                 <div className="relative group">
-                  <BookOpen className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <BookOpen className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-brand-primary transition-colors" />
                   <select
-                    value={`${subjectCode}-${subjectName}`}
+                    value={`${subjectCode}${subjectName ? '-' + subjectName : ''}`}
                     onChange={(e) => {
+                      if (e.target.value === "") {
+                        setSubjectCode('');
+                        setSubjectName('');
+                        return;
+                      }
                       const [code, ...nameParts] = e.target.value.split('-');
                       setSubjectCode(code.trim());
                       setSubjectName(nameParts.join('-').trim());
                     }}
                     className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
                     focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
-                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                    outline-none transition-all text-sm text-white appearance-none select-white"
+                    disabled={!username}
                   >
-                    <option value="-">Select Subject</option>
-
-
-
+                    <option value="" className="bg-[#131b2e] text-white">Select Subject</option>
+                    {filteredStaff
+                      .filter(s => s.name === username)
+                      .map((s, idx) => (
+                        <option key={idx} value={`${s.subjectCode}-${s.subjectName}`} className="bg-[#131b2e] text-white">
+                          {s.subjectCode} - {s.subjectName}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
@@ -263,7 +273,7 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
           </button>
 
           <div className="text-center mt-6">
-            <p className="text-[10px] text-gray-600">© 2024 Class Advisor Systems. All rights reserved.</p>
+            <p className="text-[10px] text-gray-400">© 2024 Class Advisor Systems. All rights reserved.</p>
           </div>
 
         </form>

@@ -186,7 +186,7 @@ public class DataService {
                         int numSubjects = headerSubjectCodes.size();
                         
                         if (tokens.length >= numSubjects) {
-                            Map<String, String> resultsMap = new HashMap<>();
+                            Map<String, String> resultsMap = new LinkedHashMap<>();
                             int startTokenIndex = tokens.length - numSubjects;
                             boolean alignmentSeemsValid = true;
                             
@@ -217,7 +217,7 @@ public class DataService {
                              String afterSub = remainder.substring(remainder.indexOf(subCode) + subCode.length()).trim();
                              String[] postTokens = afterSub.split("\\s+");
                              if (postTokens.length > 0 && gradePattern.matcher(postTokens[0]).matches()) {
-                                 Map<String, String> singleMap = new HashMap<>();
+                                 Map<String, String> singleMap = new LinkedHashMap<>();
                                  singleMap.put(subCode, postTokens[0]);
                                  try {
                                      saveSemesterGrade(regNo, finalSem, objectMapper.writeValueAsString(singleMap));
@@ -245,12 +245,13 @@ public class DataService {
         grade.setSemesterId(semesterId);
         
         try {
-            Map<String, String> currentResults = resultsJson == null ? new HashMap<>() : 
-                objectMapper.readValue(resultsJson, new TypeReference<Map<String, String>>() {});
+            // Use LinkedHashMap to preserve order
+            Map<String, String> currentResults = resultsJson == null ? new LinkedHashMap<>() : 
+                objectMapper.readValue(resultsJson, new TypeReference<LinkedHashMap<String, String>>() {});
             
-            Map<String, String> existingResults = new HashMap<>();
+            Map<String, String> existingResults = new LinkedHashMap<>();
             if (grade.getResults() != null && !grade.getResults().isEmpty()) {
-                existingResults = objectMapper.readValue(grade.getResults(), new TypeReference<Map<String, String>>() {});
+                existingResults = objectMapper.readValue(grade.getResults(), new TypeReference<LinkedHashMap<String, String>>() {});
             }
             
             existingResults.putAll(currentResults);
@@ -486,7 +487,7 @@ public class DataService {
             String regNo = tokens[regNoIndex].trim();
             if (regNo.isEmpty()) continue;
 
-            Map<String, String> resultsMap = new HashMap<>();
+            Map<String, String> resultsMap = new LinkedHashMap<>();
             for (int k = 0; k < subjectCodes.size(); k++) {
                 int dataIndex = subjectIndices.get(k);
                 if (dataIndex < tokens.length) {

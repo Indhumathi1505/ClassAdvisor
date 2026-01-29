@@ -62,18 +62,34 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
   const assignedSubjects = useMemo(() => {
     const list = state.subjects.filter(s => s.assignedStaff.toLowerCase() === staffName.toLowerCase());
 
-    // If loginSubject is provided and not in the list, add it as a "Virtual Subject"
+    // If loginSubject is provided
     if (loginSubject) {
-      const alreadyAssigned = list.find(s => s.code.toLowerCase() === loginSubject.subjectCode.toLowerCase() && s.semesterId === loginSubject.semesterId);
-      if (!alreadyAssigned) {
-        list.push({
-          id: `virtual-${loginSubject.subjectCode}`,
-          code: loginSubject.subjectCode,
-          name: loginSubject.subjectName,
-          semesterId: loginSubject.semesterId,
-          assignedStaff: staffName,
-          staffPassword: ''
-        });
+      // 1. Try to find EXACT match in global subjects by Code & Semester (ignoring name if needed)
+      // Note: usage of Number() for semesterId allows string/number comparison (e.g. "4" == 4)
+      const realSubject = state.subjects.find(s =>
+        s.code.toLowerCase().trim() === loginSubject.subjectCode.toLowerCase().trim() &&
+        (Number(s.semesterId) === Number(loginSubject.semesterId))
+      );
+
+      if (realSubject) {
+        // If found, ensure it's in the list (if not already added by filter above)
+        if (!list.find(s => s.id === realSubject.id)) {
+          list.unshift(realSubject);
+        }
+      } else {
+        // 2. Only if NO real subject exists, create a virtual one (fallback)
+        // Warning: Data saved to virtual subject won't appear in Student Dashboard unless subject is created there too.
+        if (!list.find(s => s.code.toLowerCase() === loginSubject.subjectCode.toLowerCase() && (Number(s.semesterId) === Number(loginSubject.semesterId)))) {
+          console.warn("Using Virtual Subject ID - Marks may not link to student view if subject is not in DB", loginSubject);
+          list.push({
+            id: `virtual-${loginSubject.subjectCode}-${loginSubject.semesterId}`,
+            code: loginSubject.subjectCode,
+            name: loginSubject.subjectName,
+            semesterId: loginSubject.semesterId,
+            assignedStaff: staffName,
+            staffPassword: ''
+          });
+        }
       }
     }
     return list;
@@ -82,13 +98,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
   // Set default selected subject on mount
   React.useEffect(() => {
     if (assignedSubjects.length > 0 && !selectedSubjectId) {
-      // Prioritize selecting the virtual subject or the first one
-      const target = loginSubject
-        ? assignedSubjects.find(s => s.code.toLowerCase() === loginSubject.subjectCode.toLowerCase()) || assignedSubjects[0]
-        : assignedSubjects[0];
-      setSelectedSubjectId(target.id);
+      // Auto-select the first valid subject
+      setSelectedSubjectId(assignedSubjects[0].id);
     }
-  }, [assignedSubjects, loginSubject]);
+  }, [assignedSubjects, selectedSubjectId]);
 
   const selectedSubject = useMemo(() => {
     return assignedSubjects.find(s => s.id === selectedSubjectId);
@@ -111,7 +124,12 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
     }
 
     if (entryType === 'marks') {
-      const existing = state.marks.filter(m => !(m.studentRegNo === regNo && m.subjectId === selectedSubjectId && m.internalId === selectedInternalId));
+      const existing = state.marks.filter(m => !(
+        m.studentRegNo === regNo &&
+        m.subjectId === selectedSubjectId &&
+        Number(m.internalId) === Number(selectedInternalId) &&
+        Number(m.semesterId) === Number(selectedSubject.semesterId)
+      ));
       const newMark: MarkRecord = {
         studentRegNo: regNo,
         subjectId: selectedSubjectId,
@@ -122,11 +140,16 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
       api.saveMark(newMark).then(saved => {
         updateState({ marks: [...existing, saved] });
       }).catch(err => {
-        console.error("Failed to save mark");
+        console.error("Failed to save mark", err);
         alert("Failed to save marks. Please ensure the value is between 0 and 100.");
       });
     } else if (entryType === 'lab') {
-      const existing = state.labMarks.filter(l => !(l.studentRegNo === regNo && l.subjectId === selectedSubjectId && l.internalId === selectedInternalId));
+      const existing = state.labMarks.filter(l => !(
+        l.studentRegNo === regNo &&
+        l.subjectId === selectedSubjectId &&
+        Number(l.internalId) === Number(selectedInternalId) &&
+        Number(l.semesterId) === Number(selectedSubject.semesterId)
+      ));
       const newLabMark: LabMarkRecord = {
         studentRegNo: regNo,
         subjectId: selectedSubjectId,
@@ -137,11 +160,16 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
       api.saveLabMark(newLabMark).then(saved => {
         updateState({ labMarks: [...existing, saved] });
       }).catch(err => {
-        console.error("Failed to save lab mark");
+        console.error("Failed to save lab mark", err);
         alert("Failed to save lab marks. Please ensure the value is between 0 and 100.");
       });
     } else {
-      const existing = state.attendance.filter(a => !(a.studentRegNo === regNo && a.subjectId === selectedSubjectId && a.internalId === selectedInternalId));
+      const existing = state.attendance.filter(a => !(
+        a.studentRegNo === regNo &&
+        a.subjectId === selectedSubjectId &&
+        Number(a.internalId) === Number(selectedInternalId) &&
+        Number(a.semesterId) === Number(selectedSubject.semesterId)
+      ));
       const newAtt: AttendanceRecord = {
         studentRegNo: regNo,
         subjectId: selectedSubjectId,
@@ -152,7 +180,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
       api.saveAttendance(newAtt).then(saved => {
         updateState({ attendance: [...existing, saved] });
       }).catch(err => {
-        console.error("Failed to save attendance");
+        console.error("Failed to save attendance", err);
         alert("Failed to save attendance. Please ensure the value is between 0 and 100.");
       });
     }
@@ -160,11 +188,11 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ state, updateState, sta
 
   const getExistingValue = (regNo: string) => {
     if (entryType === 'marks') {
-      return state.marks.find(m => m.studentRegNo === regNo && m.subjectId === selectedSubjectId && m.internalId === selectedInternalId)?.marks ?? '';
+      return state.marks.find(m => m.studentRegNo === regNo && m.subjectId === selectedSubjectId && Number(m.internalId) === Number(selectedInternalId))?.marks ?? '';
     } else if (entryType === 'lab') {
-      return state.labMarks.find(l => l.studentRegNo === regNo && l.subjectId === selectedSubjectId && l.internalId === selectedInternalId)?.marks ?? '';
+      return state.labMarks.find(l => l.studentRegNo === regNo && l.subjectId === selectedSubjectId && Number(l.internalId) === Number(selectedInternalId))?.marks ?? '';
     }
-    return state.attendance.find(a => a.studentRegNo === regNo && a.subjectId === selectedSubjectId && a.internalId === selectedInternalId)?.percentage ?? '';
+    return state.attendance.find(a => a.studentRegNo === regNo && a.subjectId === selectedSubjectId && Number(a.internalId) === Number(selectedInternalId))?.percentage ?? '';
   };
 
   const getSemesterGradeForSubject = (regNo: string) => {

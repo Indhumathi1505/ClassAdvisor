@@ -11,6 +11,9 @@ import {
   BarChart, Bar, Legend as ReLegend, Tooltip as ReTooltip
 } from 'recharts';
 
+
+import { api } from '../api.ts';
+
 interface StudentDashboardProps {
   state: AppState;
   studentRegNo: string;
@@ -20,24 +23,24 @@ interface StudentDashboardProps {
 const COLORS = ['#046e84', '#0694b3', '#08b9e1', '#06cdee', '#00e5ff'];
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'grades'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'grades' | 'marks_ledger'>('overview');
   const [viewSemester, setViewSemester] = useState<number>(1);
   const [viewInternal, setViewInternal] = useState<number>(1);
 
   const student = useMemo(() => state.students.find(s => s.registerNumber === studentRegNo), [state.students, studentRegNo]);
 
   const relevantMarks = useMemo(() =>
-    state.marks.filter(m => m.studentRegNo === studentRegNo && m.semesterId === viewSemester && m.internalId === viewInternal),
+    state.marks.filter(m => m.studentRegNo === studentRegNo && Number(m.semesterId) === Number(viewSemester) && Number(m.internalId) === Number(viewInternal)),
     [state.marks, studentRegNo, viewSemester, viewInternal]
   );
 
   const relevantMasterAtt = useMemo(() =>
-    state.masterAttendance.find(ma => ma.studentRegNo === studentRegNo && ma.semesterId === viewSemester && ma.internalId === viewInternal),
+    state.masterAttendance.find(ma => ma.studentRegNo === studentRegNo && Number(ma.semesterId) === Number(viewSemester) && Number(ma.internalId) === Number(viewInternal)),
     [state.masterAttendance, studentRegNo, viewSemester, viewInternal]
   );
 
   const relevantSubjects = useMemo(() =>
-    state.subjects.filter(s => s.semesterId === viewSemester),
+    state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)),
     [state.subjects, viewSemester]
   );
 
@@ -60,14 +63,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
   }, [relevantMarks, relevantMasterAtt, state.subjects]);
 
   const semesterGrade = useMemo(() =>
-    state.semesterGrades?.find(g => g.studentRegNo === studentRegNo && g.semesterId === viewSemester),
+    state.semesterGrades?.find(g => g.studentRegNo === studentRegNo && Number(g.semesterId) === Number(viewSemester)),
     [state.semesterGrades, studentRegNo, viewSemester]
   );
 
   const performanceTrends = useMemo(() => {
-    return state.subjects.filter(s => s.semesterId === viewSemester).map(sub => {
-      const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && m.subjectId === sub.id && m.internalId === 1)?.marks || 0;
-      const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && m.subjectId === sub.id && m.internalId === 2)?.marks || 0;
+    return state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+      const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 1)?.marks || 0;
+      const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 2)?.marks || 0;
       return {
         name: sub.code,
         'Internal 1': int1,
@@ -112,6 +115,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-8">
         <div className="flex gap-2">
           <button onClick={() => setActiveTab('overview')} className={`px-6 py-2 rounded-xl font-bold transition-all ${activeTab === 'overview' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Overview</button>
+          <button onClick={() => setActiveTab('marks_ledger')} className={`px-6 py-2 rounded-xl font-bold transition-all ${activeTab === 'marks_ledger' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Marks Ledger</button>
           <button onClick={() => setActiveTab('grades')} className={`px-6 py-2 rounded-xl font-bold transition-all ${activeTab === 'grades' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Semester Grades</button>
         </div>
         <div className="w-px h-10 bg-gray-100 hidden md:block"></div>
@@ -122,10 +126,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
             <select
               value={viewSemester}
               onChange={(e) => setViewSemester(parseInt(e.target.value))}
-              className="font-bold text-gray-800 bg-transparent outline-none cursor-pointer"
+              className="font-bold text-white bg-[#131b2e] outline-none cursor-pointer p-1 rounded border border-gray-700"
             >
               {[...Array(state.config.semesters)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>Semester {i + 1}</option>
+                <option key={i + 1} value={i + 1} className="bg-[#131b2e] text-white">Semester {i + 1}</option>
               ))}
             </select>
           </div>
@@ -163,10 +167,36 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                 </h3>
               </div>
 
+              {semesterGrade && (
+                <div className="mb-8 p-6 bg-brand-light/20 rounded-2xl border border-brand-primary/10">
+                  <h4 className="text-sm font-black text-brand-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Award className="w-4 h-4" /> University Results (Sem {viewSemester})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {(() => {
+                      const results = JSON.parse(semesterGrade.results);
+                      return state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+                        const gradeKey = Object.keys(results).find(k => k.toLowerCase() === sub.code.toLowerCase());
+                        const grade = gradeKey ? results[gradeKey] : null;
+
+                        if (!grade) return null;
+
+                        return (
+                          <div key={sub.code} className="bg-white p-3 rounded-xl border flex justify-between items-center shadow-sm">
+                            <span className="text-[10px] font-black text-gray-400 uppercase">{sub.code}</span>
+                            <span className={`font-black text-lg ${['U', 'UA', 'RA', 'AB'].includes(grade) ? 'text-red-500' : 'text-brand-deep'}`}>{grade}</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
-                {relevantSubjects.map(sub => {
-                  const subMark = relevantMarks.find(m => m.subjectId === sub.id);
-                  const labMark = state.labMarks.find(l => l.studentRegNo === studentRegNo && l.subjectId === sub.id && l.semesterId === viewSemester && l.internalId === viewInternal);
+                {state.subjects.filter(s => Number(s.semesterId) === viewSemester).map(sub => {
+                  const subMark = relevantMarks.find(m => m.subjectId === sub.id || m.subjectId === sub.code);
+                  const labMark = state.labMarks.find(l => l.studentRegNo === studentRegNo && (l.subjectId === sub.id || l.subjectId === sub.code) && l.semesterId === viewSemester && l.internalId === viewInternal);
                   return (
                     <div key={sub.id} className="p-4 bg-gray-50 rounded-xl border border-transparent hover:border-brand-primary/20 transition-all flex justify-between items-center">
                       <div>
@@ -188,7 +218,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                     </div>
                   );
                 })}
-                {relevantSubjects.length === 0 && (
+                {state.subjects.filter(s => Number(s.semesterId) === viewSemester).length === 0 && (
                   <div className="text-center py-10">
                     <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-2" />
                     <p className="text-gray-400 italic text-sm">No subjects registered for Semester {viewSemester}.</p>
@@ -242,6 +272,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                   <div className="p-3 bg-white/5 rounded-xl text-center">
                     <p className="text-[9px] font-black text-brand-accent/30 uppercase">Avg Mark</p>
                     <p className="font-black text-lg">{stats.avgMarks.toFixed(1)}</p>
+                    <p className="text-[8px] text-brand-accent/30">Excludes Lab</p>
                   </div>
                 </div>
               </div>
@@ -265,6 +296,57 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
               </div>
             </div>
           </div>
+        </div>
+      ) : activeTab === 'marks_ledger' ? (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <section className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2"><BarChart2 className="w-5 h-5 text-brand-primary" /> Internal Marks Ledger</h3>
+            <div className="overflow-x-auto border rounded-xl shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-4 font-black uppercase text-xs text-gray-500">Subject Code</th>
+                    <th className="px-6 py-4 font-black uppercase text-xs text-gray-500">Subject Name</th>
+                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Internal 1</th>
+                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Internal 2</th>
+                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Avg</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+                    const m1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code)) && Number(m.internalId) === 1)?.marks;
+                    const m2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code)) && Number(m.internalId) === 2)?.marks;
+
+                    const v1 = m1 !== undefined ? m1 : 0;
+                    const v2 = m2 !== undefined ? m2 : 0;
+
+                    const avg = (v1 + v2) / 2;
+
+                    return (
+                      <tr key={sub.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-mono font-bold text-gray-600">{sub.code}</td>
+                        <td className="px-6 py-4 font-bold text-gray-900">{sub.name}</td>
+                        <td className="px-6 py-4 text-center">
+                          {m1 !== undefined ? <span className="font-bold text-gray-700">{m1}</span> : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {m2 !== undefined ? <span className="font-bold text-gray-700">{m2}</span> : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`font-black px-3 py-1 rounded-full text-xs ${avg >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {avg.toFixed(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).length === 0 && (
+                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 italic">No subjects enrolled for this semester.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       ) : (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -314,9 +396,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={state.subjects.filter(s => s.semesterId === viewSemester).map(sub => {
-                    const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && m.subjectId === sub.id && m.internalId === 1)?.marks || 0;
-                    const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && m.subjectId === sub.id && m.internalId === 2)?.marks || 0;
+                  <BarChart data={state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+                    const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 1)?.marks || 0;
+                    const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 2)?.marks || 0;
                     return { name: sub.code, Avg: (int1 + int2) / 2 };
                   })}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />

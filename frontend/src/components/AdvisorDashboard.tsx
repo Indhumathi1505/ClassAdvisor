@@ -54,7 +54,7 @@ const AttendanceInput: React.FC<{ initialValue: number | string, onSave: (val: s
 };
 
 const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState }) => {
-  const [activeTab, setActiveTab] = useState<'config' | 'students' | 'subjects' | 'attendance' | 'reports' | 'messaging' | 'grades'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'students' | 'subjects' | 'attendance' | 'reports' | 'messaging' | 'grades' | 'staff'>('config');
   const [newStudent, setNewStudent] = useState<Student>({ registerNumber: '', rollNumber: '', name: '', parentWhatsApp: '' });
   const [newSubject, setNewSubject] = useState<Subject>({ id: '', code: '', name: '', semesterId: 1, assignedStaff: '', staffPassword: '' });
 
@@ -79,6 +79,10 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   const [editSubjectData, setEditSubjectData] = useState<Subject | null>(null);
   const [editingStudentReg, setEditingStudentReg] = useState<string | null>(null);
   const [editStudentData, setEditStudentData] = useState<Student | null>(null);
+
+  // Staff States
+  const [newStaff, setNewStaff] = useState({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+  const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
 
   const isEvenInternal = viewInternal % 2 === 0;
 
@@ -214,10 +218,10 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
 
   // Detailed Analysis Reporting
   const getDetailedReportForInternal = (regNo: string, semesterId: number, internalId: number) => {
-    const relevantSubjects = state.subjects.filter(s => s.semesterId === semesterId);
-    const marks = state.marks.filter(m => m.studentRegNo === regNo && m.semesterId === semesterId && m.internalId === internalId);
-    const labMarks = state.labMarks.filter(l => l.studentRegNo === regNo && l.semesterId === semesterId && l.internalId === internalId);
-    const masterAtt = state.masterAttendance.find(ma => ma.studentRegNo === regNo && ma.semesterId === semesterId && ma.internalId === internalId)?.percentage ?? 0;
+    const relevantSubjects = state.subjects.filter(s => Number(s.semesterId) === Number(semesterId));
+    const marks = state.marks.filter(m => m.studentRegNo === regNo && Number(m.semesterId) === Number(semesterId) && Number(m.internalId) === Number(internalId));
+    const labMarks = state.labMarks.filter(l => l.studentRegNo === regNo && Number(l.semesterId) === Number(semesterId) && Number(l.internalId) === Number(internalId));
+    const masterAtt = state.masterAttendance.find(ma => ma.studentRegNo === regNo && Number(ma.semesterId) === Number(semesterId) && Number(ma.internalId) === Number(internalId))?.percentage ?? 0;
 
     const totalMarks = marks.reduce((acc, curr) => acc + curr.marks, 0);
     const avgMarks = marks.length > 0 ? totalMarks / marks.length : 0;
@@ -225,8 +229,8 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
     const subjectBreakdown = relevantSubjects.map(sub => ({
       name: sub.name,
       code: sub.code,
-      mark: marks.find(m => m.subjectId === sub.id)?.marks ?? '-',
-      labMark: labMarks.find(l => l.subjectId === sub.id)?.marks ?? '-',
+      mark: marks.find(m => m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code))?.marks ?? '-',
+      labMark: labMarks.find(l => l.subjectId === sub.id || l.subjectId === sub.code || l.subjectId.includes(sub.code))?.marks ?? '-',
     }));
 
     return { totalMarks, avgMarks, masterAtt, subjectBreakdown };
@@ -248,7 +252,13 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
     return {
       avgMark: totalAvgMark / state.students.length,
       avgAtt: totalAvgAtt / state.students.length,
-      studentCount: state.students.length
+      studentCount: state.students.length,
+      reportList: state.students.map(s => {
+        // Generate consolidated report for visual table
+        const r1 = getDetailedReportForInternal(s.registerNumber, viewSemester, 1);
+        const r2 = getDetailedReportForInternal(s.registerNumber, viewSemester, 2);
+        return { student: s, int1: r1, int2: r2 };
+      })
     };
   }, [state.students, state.marks, state.masterAttendance, viewSemester, viewInternal]);
 
@@ -440,7 +450,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
       <aside className="w-full lg:w-64 flex flex-col gap-2">
         <button onClick={() => setActiveTab('config')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'config' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><Settings className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Configuration</span></button>
         <button onClick={() => setActiveTab('students')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'students' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><Users className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Students</span></button>
-        <button onClick={() => setActiveTab('subjects')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'subjects' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><Book className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Subjects & Staff</span></button>
+        <button onClick={() => setActiveTab('staff')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'staff' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><UserCheck className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Staff Management</span></button>
         <button onClick={() => setActiveTab('attendance')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'attendance' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><ClipboardList className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Master Attendance</span></button>
         <button onClick={() => setActiveTab('reports')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'reports' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><BarChart3 className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Analysis</span></button>
         <button onClick={() => setActiveTab('grades')} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'grades' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white hover:bg-brand-light'}`}><FileCheck className="w-5 h-5" /><span className="text-sm font-bold uppercase tracking-tight">Semester Grades</span></button>
@@ -457,8 +467,8 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
               <div className="p-2 bg-white rounded-lg shadow-sm border"><Layers className="w-4 h-4 text-brand-primary" /></div>
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Semester</label>
-                <select value={viewSemester} onChange={(e) => setViewSemester(parseInt(e.target.value))} className="bg-transparent font-bold text-gray-700 outline-none cursor-pointer">
-                  {[...Array(state.config.semesters)].map((_, i) => (<option key={i + 1} value={i + 1}>Semester {i + 1}</option>))}
+                <select value={viewSemester} onChange={(e) => setViewSemester(parseInt(e.target.value))} className="bg-[#131b2e] font-bold text-white outline-none cursor-pointer p-1 rounded border border-gray-700">
+                  {[...Array(state.config.semesters)].map((_, i) => (<option key={i + 1} value={i + 1} className="bg-[#131b2e] text-white">Semester {i + 1}</option>))}
                 </select>
               </div>
             </div>
@@ -513,6 +523,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                   <input placeholder="Roll Number" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.rollNumber} onChange={e => setNewStudent({ ...newStudent, rollNumber: e.target.value })} />
                   <input placeholder="Full Name" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.name} onChange={e => setNewStudent({ ...newStudent, name: e.target.value })} />
                   <input placeholder="WhatsApp (91...)" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.parentWhatsApp} onChange={e => setNewStudent({ ...newStudent, parentWhatsApp: e.target.value })} />
+                  {/* Updated: Button text color is now black/dark for better contrast */}
                   <button onClick={addStudent} className="lg:col-span-4 bg-brand-primary hover:bg-brand-secondary text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold uppercase text-xs tracking-widest shadow-lg transition-all active:scale-[0.98]"><Plus className="w-5 h-5" /> Register Student</button>
                 </div>
               </div>
@@ -582,128 +593,144 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
           </div>
         )}
 
-        {activeTab === 'subjects' && (
-          <div className="space-y-8">
-            <h3 className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-2"><Book className="w-6 h-6" /> Faculty Assignments</h3>
+        {/* Subjects Tab Content Removed */}
 
-            {/* Addition Form */}
-            {!editingSubjectId && (
-              <div className="bg-brand-light p-6 rounded-2xl border border-brand-primary/10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in zoom-in duration-300">
-                <div className="space-y-1"><label className="text-[10px] font-black text-brand-primary/50 uppercase">Internal ID</label><input placeholder="Unique ID (e.g. SUB001)" className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white" value={newSubject.id} onChange={e => setNewSubject({ ...newSubject, id: e.target.value })} /></div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-brand-primary/50 uppercase">Subject Selection</label>
-                  <select
-                    className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
-                    value={`${newSubject.code}-${newSubject.name}`}
-                    onChange={e => {
-                      const [code, ...nameParts] = e.target.value.split('-');
-                      setNewSubject({ ...newSubject, code: code.trim(), name: nameParts.join('-').trim() });
-                    }}
-                  >
-                    <option value="">Select Subject</option>
-                    <option value="cs3451-os">CS3451 - OS</option>
-                    <option value="cs3452-toc">CS3452 - TOC</option>
-                    <option value="ge3451-ess">GE3451 - ESS</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-brand-primary/50 uppercase">Semester</label>
-                  <select className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white" value={newSubject.semesterId} onChange={e => setNewSubject({ ...newSubject, semesterId: parseInt(e.target.value) })}>
-                    {[...Array(state.config.semesters)].map((_, i) => <option key={i + 1} value={i + 1}>Semester {i + 1}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-brand-primary/50 uppercase">Staff Name</label>
-                  <select
-                    className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
-                    value={newSubject.assignedStaff}
-                    onChange={e => setNewSubject({ ...newSubject, assignedStaff: e.target.value })}
-                  >
-                    <option value="">Select Staff</option>
-                    <option value="vasuki">Vasuki</option>
-                    <option value="kalaivani s">Kalaivani S</option>
-                    <option value="gv">GV</option>
-                    <option value="rss">RSS</option>
-                    <option value="rk">RK</option>
-                    <option value="viji">Viji</option>
-                  </select>
-                </div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-brand-primary/50 uppercase">Login Password</label><input placeholder="Password" type="password" className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white" value={newSubject.staffPassword} onChange={e => setNewSubject({ ...newSubject, staffPassword: e.target.value })} /></div>
-                <button onClick={addSubject} className="lg:col-span-3 bg-brand-primary text-white py-2.5 rounded-xl hover:bg-brand-secondary flex items-center justify-center gap-2 font-bold uppercase text-xs tracking-widest transition-all shadow-lg active:scale-95"><Plus className="w-4 h-4" /> Add Subject Mapping</button>
+        {activeTab === 'staff' && (
+          <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-2"><UserCheck className="w-6 h-6" /> Staff Management</h3>
+              <span className="bg-brand-light text-brand-accent px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">{state.staff?.length || 0} Faculty</span>
+            </div>
+
+            {/* Add Staff Form */}
+            <div className="bg-brand-light p-6 rounded-2xl border border-brand-primary/10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-brand-primary/50 uppercase">Faculty Name</label>
+                <input
+                  placeholder="e.g. Dr. Vasuki"
+                  className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
+                  value={newStaff.name}
+                  onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
+                />
               </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border">
-                <Contact className="w-5 h-5 text-brand-primary ml-2" />
-                <span className="text-sm font-black text-gray-500 uppercase">Filter View by Semester:</span>
-                <select value={subjectViewSemester} onChange={e => setSubjectViewSemester(e.target.value === 'all' ? 'all' : parseInt(e.target.value))} className="bg-white border rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm outline-none">
-                  <option value="all">All Semesters</option>
-                  {[...Array(state.config.semesters)].map((_, i) => <option key={i + 1} value={i + 1}>Semester {i + 1}</option>)}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-brand-primary/50 uppercase">Semester</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-[#131b2e] text-white"
+                  value={newStaff.semesterId}
+                  onChange={e => setNewStaff({ ...newStaff, semesterId: parseInt(e.target.value) })}
+                >
+                  {[...Array(state.config.semesters)].map((_, i) => <option key={i + 1} value={i + 1} className="bg-[#131b2e] text-white">Semester {i + 1}</option>)}
                 </select>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredSubjects.map(sub => {
-                  const isEditing = editingSubjectId === sub.id;
-                  return (
-                    <div key={sub.id} className={`p-5 border rounded-2xl group transition-all shadow-sm bg-white ${isEditing ? 'border-brand-primary ring-2 ring-brand-light' : 'hover:border-brand-primary/20'}`}>
-                      {isEditing ? (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-black text-brand-primary uppercase">Edit Subject Mapping</span>
-                            <div className="flex gap-2">
-                              <button onClick={saveEditedSubject} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600" title="Save Changes"><Check className="w-4 h-4" /></button>
-                              <button onClick={cancelEditingSubject} className="p-2 bg-gray-100 text-gray-400 rounded-lg hover:bg-gray-200" title="Cancel"><X className="w-4 h-4" /></button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2">
-                              <select
-                                className="w-full text-sm font-bold border rounded p-2"
-                                value={`${editSubjectData?.code}-${editSubjectData?.name}`}
-                                onChange={e => {
-                                  const [code, ...nameParts] = e.target.value.split('-');
-                                  setEditSubjectData({ ...editSubjectData!, code: code.trim(), name: nameParts.join('-').trim() });
-                                }}
-                              >
-                                <option value="cs3451-os">CS3451 - OS</option>
-                                <option value="cs3452-toc">CS3452 - TOC</option>
-                                <option value="ge3451-ess">GE3451 - ESS</option>
-                              </select>
-                            </div>
-                            <div className="col-span-2">
-                              <select
-                                className="w-full text-xs border rounded p-2"
-                                value={editSubjectData?.assignedStaff}
-                                onChange={e => setEditSubjectData({ ...editSubjectData!, assignedStaff: e.target.value })}
-                              >
-                                <option value="vasuki">Vasuki</option>
-                                <option value="kalaivani s">Kalaivani S</option>
-                                <option value="gv">GV</option>
-                                <option value="rss">RSS</option>
-                                <option value="rk">RK</option>
-                                <option value="viji">Viji</option>
-                              </select>
-                            </div>
-                            <input placeholder="Password" type="password" className="w-full text-xs border rounded p-2 col-span-2" value={editSubjectData?.staffPassword} onChange={e => setEditSubjectData({ ...editSubjectData!, staffPassword: e.target.value })} />
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex justify-between items-start mb-4">
-                            <div><div className="flex items-center gap-2 mb-1"><span className="text-[10px] font-black px-2 py-0.5 bg-brand-light text-brand-primary rounded uppercase">Sem {sub.semesterId}</span><h4 className="font-bold text-gray-900 leading-tight">{sub.name}</h4></div><p className="text-xs text-gray-400 font-mono tracking-tighter uppercase">{sub.code}</p></div>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditingSubject(sub)} className="p-1.5 text-gray-400 hover:text-brand-primary hover:bg-indigo-50 rounded-lg"><Edit2 className="w-4 h-4" /></button><button onClick={() => removeSubject(sub.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button></div>
-                          </div>
-                          <div className="text-xs font-bold text-brand-primary bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
-                            <span className="flex items-center gap-2"><UserCheck className="w-3 h-3 text-brand-primary/50" /> Faculty: {sub.assignedStaff}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-brand-primary/50 uppercase">Subject Code</label>
+                <input
+                  placeholder="e.g. CS3451"
+                  className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
+                  value={newStaff.subjectCode}
+                  onChange={e => setNewStaff({ ...newStaff, subjectCode: e.target.value })}
+                />
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-brand-primary/50 uppercase">Subject Name</label>
+                <input
+                  placeholder="e.g. Operating Systems"
+                  className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
+                  value={newStaff.subjectName}
+                  onChange={e => setNewStaff({ ...newStaff, subjectName: e.target.value })}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={() => {
+                    if (!newStaff.name || !newStaff.subjectCode || !newStaff.subjectName) {
+                      alert("Please fill all details");
+                      return;
+                    }
+                    const staffPayload = editingStaffId ? { ...newStaff, id: editingStaffId } : newStaff;
+
+                    api.addStaff(staffPayload).then(saved => {
+                      if (editingStaffId) {
+                        updateState({ staff: state.staff.map(s => s.id === editingStaffId ? saved : s) });
+                        alert("Staff details updated successfully!");
+                      } else {
+                        updateState({ staff: [...(state.staff || []), saved] });
+                        alert("Staff details added successfully!");
+                      }
+                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+                      setEditingStaffId(null);
+                    }).catch(err => alert("Failed to save staff"));
+                  }}
+                  className={`w-full ${editingStaffId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-brand-primary hover:bg-brand-secondary'} text-white py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold uppercase text-xs tracking-widest transition-all shadow-lg active:scale-95`}
+                >
+                  {editingStaffId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {editingStaffId ? 'Update Staff' : 'Add Staff'}
+                </button>
+                {editingStaffId && (
+                  <button
+                    onClick={() => {
+                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+                      setEditingStaffId(null);
+                    }}
+                    className="bg-gray-200 text-gray-600 p-2.5 rounded-xl hover:bg-gray-300 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Staff List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(state.staff || []).map(staff => (
+                <div key={staff.id} className="p-4 border rounded-xl bg-white shadow-sm hover:border-brand-primary/30 transition-all flex justify-between items-start group">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black px-2 py-0.5 bg-brand-light text-brand-primary rounded uppercase">Sem {staff.semesterId}</span>
+                      <h4 className="font-bold text-gray-900">{staff.name}</h4>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <p><span className="font-mono font-bold text-gray-700">{staff.subjectCode}</span> - {staff.subjectName}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => {
+                        setEditingStaffId(staff.id!);
+                        setNewStaff({
+                          name: staff.name,
+                          semesterId: staff.semesterId,
+                          subjectCode: staff.subjectCode,
+                          subjectName: staff.subjectName
+                        });
+                      }}
+                      className="p-1.5 text-gray-300 hover:text-brand-primary hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this staff mapping?")) {
+                          api.deleteStaff(staff.id!).then(() => {
+                            updateState({ staff: state.staff.filter(s => s.id !== staff.id) });
+                          });
+                        }
+                      }}
+                      className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {(state.staff || []).length === 0 && (
+                <div className="col-span-3 text-center py-12 text-gray-400 italic bg-gray-50 rounded-2xl border border-dashed">
+                  No staff details added yet. Add staff manually above to enable them to login.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -747,39 +774,89 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
               </div>
             </div>
 
-            {/* Class Charts Section */}
+            {/* Added: University Grade Summary Block */}
+            <div className="bg-white p-6 rounded-3xl border shadow-sm mb-2">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-brand-deep" /> University Results Overview (Sem {viewSemester})
+                </h4>
+              </div>
+              {state.semesterGrades.filter(g => g.semesterId === viewSemester).length > 0 ? (
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  <div className="p-4 bg-green-50 rounded-2xl border border-green-100 min-w-[150px]">
+                    <p className="text-[10px] font-black text-green-600 uppercase">Pass Percentage</p>
+                    <p className="text-3xl font-black text-green-700 mt-1">
+                      {(() => {
+                        const grades = state.semesterGrades.filter(g => g.semesterId === viewSemester);
+                        if (grades.length === 0) return '0%';
+                        const passed = grades.filter(g => {
+                          const res = JSON.parse(g.results);
+                          return !Object.values(res).some(r => r === 'U' || r === 'UA' || r === 'RA');
+                        }).length;
+                        return Math.round((passed / grades.length) * 100) + '%';
+                      })()}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-brand-light rounded-2xl border border-brand-primary/10 min-w-[150px]">
+                    <p className="text-[10px] font-black text-brand-primary uppercase">Results Uploaded</p>
+                    <p className="text-3xl font-black text-brand-deep mt-1">
+                      {state.semesterGrades.filter(g => g.semesterId === viewSemester).length}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-400 italic text-sm border-2 border-dashed rounded-xl">
+                  No university results uploaded for Semester {viewSemester}. Use "Semester Grades" tab to upload PDF.
+                </div>
+              )}
+            </div>
+
+            {/* Class Charts Section - Overall Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-white p-6 rounded-3xl border shadow-sm">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Score Distribution (Internal {viewInternal})</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Subject Wise Performance (Internal {viewInternal})</h4>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={state.students.map(s => {
-                      const rep = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
-                      return { name: s.name.split(' ')[0], Score: rep.avgMarks };
-                    })}>
+                    <BarChart data={(() => {
+                      const relevantSubjects = state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester));
+                      return relevantSubjects.map(sub => {
+                        const subMarks = state.marks.filter(m => (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === Number(viewInternal));
+                        const avg = subMarks.length > 0 ? (subMarks.reduce((a, b) => a + b.marks, 0) / subMarks.length) : 0;
+                        return { name: sub.code, AvgMark: parseFloat(avg.toFixed(2)), FullName: sub.name };
+                      });
+                    })()}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                       <YAxis domain={[0, 100]} fontSize={10} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                      <Bar dataKey="Score" fill="#046e84" radius={[6, 6, 0, 0]} barSize={20} />
+                      <Legend />
+                      <Bar dataKey="AvgMark" fill="#046e84" radius={[6, 6, 0, 0]} barSize={30} name="Avg Score" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border shadow-sm">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Attendance Distribution</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Overall Attendance Analysis</h4>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={state.students.map(s => {
-                      const rep = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
-                      return { name: s.name.split(' ')[0], Attendance: rep.masterAtt };
-                    })}>
+                    <BarChart data={(() => {
+                      // Calculate class average attendance for Int 1 vs Int 2
+                      const getAvgAtt = (intId: number) => {
+                        const recs = state.masterAttendance.filter(m => Number(m.semesterId) === Number(viewSemester) && Number(m.internalId) === Number(intId));
+                        return recs.length > 0 ? (recs.reduce((a, b) => a + b.percentage, 0) / recs.length) : 0;
+                      };
+                      return [
+                        { name: 'Internal 1', AvgAtt: parseFloat(getAvgAtt(1).toFixed(2)) },
+                        { name: 'Internal 2', AvgAtt: parseFloat(getAvgAtt(2).toFixed(2)) }
+                      ];
+                    })()}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                       <YAxis domain={[0, 100]} fontSize={10} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                      <Bar dataKey="Attendance" fill="#fbbf24" radius={[6, 6, 0, 0]} barSize={20} />
+                      <Legend />
+                      <Bar dataKey="AvgAtt" fill="#fbbf24" radius={[6, 6, 0, 0]} barSize={40} name="Avg Attendance %" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -808,6 +885,59 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
               </div>
             </div>
 
+            {/* DETAILED MARKS LEDGER */}
+            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden mb-12">
+              <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
+                <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" /> Consolidated Internal Marks Ledger</h4>
+                <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded border">Avg Marks Int 1 | Int 2</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-white border-b">
+                    <tr>
+                      <th className="px-6 py-4 font-black text-gray-400 uppercase tracking-wider text-[10px]">Reg No</th>
+                      <th className="px-6 py-4 font-black text-gray-400 uppercase tracking-wider text-[10px]">Name</th>
+                      {state.subjects.filter(s => s.semesterId === viewSemester).map(sub => (
+                        <th key={sub.id} className="px-4 py-4 font-black text-gray-600 uppercase text-center border-l bg-gray-50/30 whitespace-nowrap min-w-[120px]">
+                          {sub.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(classStats as any).reportList?.map((item: any) => {
+                      let totalMarks = 0;
+                      return (
+                        <tr key={item.student.registerNumber} className="hover:bg-brand-light/10 transition-colors">
+                          <td className="px-6 py-4 font-mono font-bold text-brand-primary">{item.student.registerNumber}</td>
+                          <td className="px-6 py-4 font-bold text-gray-800">{item.student.name}</td>
+                          {state.subjects.filter(s => Number(s.semesterId) === viewSemester).sort((a, b) => a.code.localeCompare(b.code)).map(sub => {
+                            const m1 = item.int1.subjectBreakdown.find((b: any) => b.code === sub.code)?.mark;
+                            const m2 = item.int2.subjectBreakdown.find((b: any) => b.code === sub.code)?.mark;
+
+                            const v1 = (m1 && m1 !== '-' && m1 !== 'AB') ? parseFloat(m1) : 0;
+                            const v2 = (m2 && m2 !== '-' && m2 !== 'AB') ? parseFloat(m2) : 0;
+                            totalMarks += (v1 + v2);
+
+                            return (
+                              <td key={sub.id} className="px-4 py-4 text-center border-l">
+                                <div className="flex justify-center items-center gap-2">
+                                  <span className={`font-bold w-8 text-right ${(m1 === '-' || m1 < 50) ? 'text-gray-400' : 'text-gray-700'}`}>{m1}</span>
+                                  <span className="text-gray-200 text-[10px]">|</span>
+                                  <span className={`font-bold w-8 text-left ${(m2 === '-' || m2 < 50) ? 'text-gray-400' : 'text-gray-700'}`}>{m2}</span>
+                                </div>
+                              </td>
+                            );
+                          })}
+                          <td className="px-4 py-4 font-black text-center text-brand-deep border-l bg-brand-light/10">{totalMarks.toFixed(0)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div className="overflow-x-auto border rounded-3xl shadow-xl bg-white scrollbar-thin scrollbar-thumb-brand-light">
               <table className="w-full text-left text-xs">
                 <thead className="bg-brand-accent text-white border-b-2 border-brand-primary">
@@ -817,8 +947,13 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                     <th className="px-6 py-5 font-black uppercase tracking-widest">Name</th>
                     {state.subjects.filter(s => s.semesterId === viewSemester).map(sub => (
                       <React.Fragment key={sub.id}>
-                        <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[120px] bg-white/10 whitespace-nowrap">{sub.name} (M)</th>
-                        {isEvenInternal && <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[120px] bg-emerald-800/20 text-emerald-100 whitespace-nowrap">{sub.name} (L)</th>}
+                        <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[150px] bg-white/10 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span>{sub.name}</span>
+                            <span className="text-[9px] opacity-70">({sub.code}) Marks</span>
+                          </div>
+                        </th>
+                        {isEvenInternal && <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[120px] bg-emerald-800/20 text-emerald-100 whitespace-nowrap">{sub.name} (Lab)</th>}
                       </React.Fragment>
                     ))}
                     <th className="px-6 py-5 font-black uppercase tracking-widest text-center bg-brand-deep">Total</th>

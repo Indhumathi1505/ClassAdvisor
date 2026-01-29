@@ -8,9 +8,9 @@ export default {
         extend: {
             colors: {
                 brand: {
-                    primary: '#67e8f9',   // Lighter Cyan
-                    secondary: '#0d5771ff', // Darker Violet
-                    accent: '#4b5563',    // Professional Grey
+                    primary: '#0e3035ff',   // Lighter Cyan
+                    secondary: '#154c60ff', // Darker Violet
+                    accent: '#1d4884ff',    // Professional Grey
                     light: '#f3f4f6',     // Light Grey for backgrounds/options
                     deep: '#1f2937',      // Deep Grey for text
                 }

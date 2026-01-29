@@ -62,12 +62,14 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col relative text-gray-800">
       <BackgroundParticles />
-      <nav className="bg-brand-primary/95 backdrop-blur-sm text-slate-900 px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50 border-b border-brand-secondary/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
-            <GraduationCap className="w-6 h-6" />
+      <nav className="bg-brand-primary/95 backdrop-blur-sm text-white px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50 border-b border-brand-secondary/50">
+        <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="p-2 bg-white/10 group-hover:bg-white/20 rounded-lg transition-all duration-300">
+            <GraduationCap className="w-6 h-6 text-white group-hover:text-cyan-200" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Class Advisor Pro</h1>
+          <h1 className="text-xl font-extrabold tracking-tight text-white group-hover:text-cyan-200 transition-colors drop-shadow-sm">
+            Class Advisor <span className="text-cyan-400 group-hover:text-white transition-colors">Pro</span>
+          </h1>
         </div>
 
         {currentUser && (
