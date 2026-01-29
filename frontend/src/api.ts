@@ -100,9 +100,60 @@ export const api = {
     return response.json();
   },
 
+  convertPdfToCsv: async (file: File, semesterId: number): Promise<Blob> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('semesterId', semesterId.toString());
+
+    const response = await fetch(`${API_BASE_URL}/convert-pdf-to-csv`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to convert PDF');
+    return response.blob();
+  },
+
+  uploadCsvGrades: async (file: File, semesterId: number): Promise<SemesterGrade[]> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('semesterId', semesterId.toString());
+
+    const response = await fetch(`${API_BASE_URL}/upload-grades-csv`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to upload CSV grades');
+    return response.json();
+  },
+
   fetchMyGrades: async (regNo: string): Promise<SemesterGrade[]> => {
     const response = await fetch(`${API_BASE_URL}/my-grades/${regNo}`);
     if (!response.ok) throw new Error('Failed to fetch student grades');
     return response.json();
+  },
+
+  downloadConsolidatedExcel: async (): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/export-grades-excel`);
+    if (!response.ok) throw new Error('Failed to download excel');
+    return response.blob();
+  },
+
+  // Staff Management
+  addStaff: async (staff: any): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(staff),
+    });
+    if (!response.ok) throw new Error('Failed to add staff');
+    return response.json();
+  },
+
+  deleteStaff: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/staff/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete staff');
   }
 };

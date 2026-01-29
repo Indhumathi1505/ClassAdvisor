@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { UserRole, AppState } from '../types';
-import { User, Lock, ShieldCheck, BookOpen, Hash, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UserRole, AppState, Staff } from '../types';
+import { User, Lock, ShieldCheck, BookOpen, Layers } from 'lucide-react';
+import { api } from '../api';
 
 interface LoginProps {
   state: AppState;
@@ -15,8 +16,27 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
   const [semester, setSemester] = useState('1');
   const [subjectName, setSubjectName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
 
   const [error, setError] = useState('');
+
+  // Fetch staff data when component mounts or state.staff changes
+  useEffect(() => {
+    setStaffList(state.staff || []);
+  }, [state.staff]);
+
+  // Filter staff by selected semester
+  useEffect(() => {
+    if (semester) {
+      const filtered = staffList.filter(s => s.semesterId === parseInt(semester));
+      setFilteredStaff(filtered);
+      // Reset selections when semester changes
+      setUsername('');
+      setSubjectCode('');
+      setSubjectName('');
+    }
+  }, [semester, staffList]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,194 +80,193 @@ const Login: React.FC<LoginProps> = ({ state, onLogin }) => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12 mb-12">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+      <div className="w-full max-w-md bg-[#0F1523] rounded-2xl border border-gray-800 shadow-2xl overflow-hidden p-8">
 
         {/* HEADER */}
-        <div className="bg-gradient-to-br from-brand-primary to-brand-secondary p-8 text-center text-white">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ShieldCheck className="w-10 h-10" />
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#0F1523] border border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_15px_rgba(103,232,249,0.15)]">
+            <ShieldCheck className="w-8 h-8 text-brand-primary" />
           </div>
-          <h2 className="text-2xl font-bold">Academic Portal</h2>
-          <p className="opacity-80">Secure Login for Students & Faculty</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Class Advisor Portal</h2>
+          <p className="text-gray-500 text-sm">Access Management System</p>
         </div>
 
-        <div className="p-8">
+        {/* ROLE SWITCH */}
+        <div className="mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+          Portal Access Role
+        </div>
+        <div className="flex bg-[#0b0f19] p-1.5 rounded-xl mb-8 border border-gray-800">
+          <button
+            onClick={() => { setRole(UserRole.STUDENT); setError(''); }}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.STUDENT
+              ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
+              : 'text-gray-500 hover:text-gray-400'
+              }`}
+          >
+            Student
+          </button>
 
-          {/* ROLE SWITCH */}
-          <div className="flex gap-2 p-1 bg-brand-primary rounded-lg mb-8">
-            <button
-              onClick={() => { setRole(UserRole.STUDENT); setError(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${role === UserRole.STUDENT
-                ? 'bg-white shadow text-brand-primary'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-              STUDENT
-            </button>
+          <button
+            onClick={() => { setRole(UserRole.STAFF); setError(''); }}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.STAFF
+              ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
+              : 'text-gray-500 hover:text-gray-400'
+              }`}
+          >
+            Faculty
+          </button>
 
-            <button
-              onClick={() => { setRole(UserRole.STAFF); setError(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${role === UserRole.STAFF
-                ? 'bg-white shadow text-brand-primary'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-              STAFF
-            </button>
+          <button
+            onClick={() => { setRole(UserRole.ADVISOR); setError(''); }}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-300 ${role === UserRole.ADVISOR
+              ? 'bg-transparent border border-brand-primary text-brand-primary shadow-[0_0_10px_rgba(103,232,249,0.1)]'
+              : 'text-gray-500 hover:text-gray-400'
+              }`}
+          >
+            Advisor
+          </button>
+        </div>
 
-            <button
-              onClick={() => { setRole(UserRole.ADVISOR); setError(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${role === UserRole.ADVISOR
-                ? 'bg-white shadow text-brand-primary'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-              ADVISOR
-            </button>
-          </div>
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-          {/* FORM */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            {role !== UserRole.STAFF && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    {role === UserRole.STUDENT
-                      ? 'Register Number'
-                      : 'Advisor Username'}
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
-                      outline-none transition-all text-sm"
-                      placeholder={role === UserRole.STUDENT ? "Enter Reg No" : "Enter Name"}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    {role === UserRole.STUDENT ? 'Roll Number' : 'Password'}
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
-                      outline-none transition-all text-sm"
-                      placeholder="Enter password"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {role === UserRole.STAFF && (
-              <div className="space-y-4 pt-2 border-t mt-4">
-                
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Staff Name
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <select
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
-                      outline-none transition-all text-sm appearance-none bg-white"
-                    >
-                      <option value="">Select Staff Name</option>
-                      <option value="vasuki">Vasuki</option>
-                      <option value="kalaivani s">Kalaivani S</option>
-                      <option value="gv">GV</option>
-                      <option value="rss">RSS</option>
-                      <option value="rk">RK</option>
-                      <option value="viji">Viji</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Semester
-                  </label>
-                  <div className="relative">
-                    <Layers className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <select
-                      value={semester}
-                      onChange={(e) => setSemester(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
-                      outline-none transition-all text-sm appearance-none bg-white"
-                    >
-                      {[...Array(8)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>
-                          Semester {i + 1}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Select Subject
-                  </label>
-                  <div className="relative">
-                    <BookOpen className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <select
-                      value={`${subjectCode}-${subjectName}`}
-                      onChange={(e) => {
-                        const [code, ...nameParts] = e.target.value.split('-');
-                        setSubjectCode(code.trim());
-                        setSubjectName(nameParts.join('-').trim());
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
-                      outline-none transition-all text-sm appearance-none bg-white"
-                    >
-                      <option value="-">Select Subject</option>
-                      <option value="cs3451-os">CS3451 - OS</option>
-                      <option value="cs3452-toc">CS3452 - TOC</option>
-                      <option value="ge3451-ess">GE3451 - ESS</option>
-                    </select>
-                  </div>
+          {role !== UserRole.STAFF && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">
+                  {role === UserRole.STUDENT
+                    ? 'Student Register Number'
+                    : 'Advisor Username'}
+                </label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
+                    focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
+                    outline-none transition-all text-sm text-gray-200 placeholder-gray-600"
+                    placeholder={role === UserRole.STUDENT ? "Enter Reg No" : "Enter Name"}
+                  />
                 </div>
               </div>
-            )}
 
-            {error && (
-              <p className="text-brand-primary text-xs bg-red-50 p-3 rounded-lg border border-red-100 font-medium leading-tight">
-                {error}
-              </p>
-            )}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">
+                  {role === UserRole.STUDENT ? 'Roll Number' : 'Password'}
+                </label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
+                    focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
+                    outline-none transition-all text-sm text-gray-200 placeholder-gray-600 tracking-widest"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
-            <button
-              type="submit"
-              className="w-full py-3 bg-brand-primary text-white font-bold rounded-lg
-              hover:bg-brand-secondary active:transform active:scale-[0.98]
-              transition-all shadow-lg mt-4"
-            >
-              SIGN IN
-            </button>
+          {role === UserRole.STAFF && (
+            <div className="space-y-5">
 
-          </form>
-        </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">
+                  Faculty Name
+                </label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <select
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
+                    focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
+                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                  >
+                    <option value="">Select Staff Name</option>
+                    {[...new Set(filteredStaff.map(s => s.name))].map((name, idx) => (
+                      <option key={idx} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">
+                  Semester
+                </label>
+                <div className="relative group">
+                  <Layers className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
+                    focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
+                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                  >
+                    {[...Array(8)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        Semester {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">
+                  Select Subject
+                </label>
+                <div className="relative group">
+                  <BookOpen className="absolute left-4 top-3.5 w-5 h-5 text-gray-600 group-focus-within:text-brand-primary transition-colors" />
+                  <select
+                    value={`${subjectCode}-${subjectName}`}
+                    onChange={(e) => {
+                      const [code, ...nameParts] = e.target.value.split('-');
+                      setSubjectCode(code.trim());
+                      setSubjectName(nameParts.join('-').trim());
+                    }}
+                    className="w-full pl-12 pr-4 py-3 bg-[#131b2e] border border-gray-800 rounded-xl
+                    focus:ring-1 focus:ring-brand-primary focus:border-brand-primary
+                    outline-none transition-all text-sm text-gray-200 appearance-none"
+                  >
+                    <option value="-">Select Subject</option>
+
+
+
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-red-400 text-xs bg-red-500/10 p-3 rounded-lg border border-red-500/20 font-medium leading-tight text-center">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-3.5 bg-brand-primary hover:bg-cyan-400 text-black font-bold rounded-xl
+            active:transform active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(103,232,249,0.3)] mt-6 text-sm"
+          >
+            Sign In to {role === UserRole.STAFF ? 'Faculty' : role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()} Portal
+          </button>
+
+          <div className="text-center mt-6">
+            <p className="text-[10px] text-gray-600">© 2024 Class Advisor Systems. All rights reserved.</p>
+          </div>
+
+        </form>
       </div>
     </div>
   );

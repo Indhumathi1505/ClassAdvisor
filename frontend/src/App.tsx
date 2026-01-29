@@ -9,6 +9,8 @@ import { LogOut, GraduationCap, LayoutDashboard } from 'lucide-react';
 
 import { api } from './api.ts';
 
+import BackgroundParticles from './components/BackgroundParticles';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<{ role: UserRole; identifier: string; data?: any } | null>(null);
   const [state, setState] = useState<AppState>({
@@ -18,6 +20,7 @@ const App: React.FC = () => {
     labMarks: [],
     attendance: [],
     masterAttendance: [],
+    semesterGrades: [],
     config: {
       years: 4,
       semesters: 8,
@@ -57,8 +60,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <nav className="bg-brand-primary text-white px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+    <div className="min-h-screen flex flex-col relative text-gray-800">
+      <BackgroundParticles />
+      <nav className="bg-brand-primary/95 backdrop-blur-sm text-slate-900 px-6 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50 border-b border-brand-secondary/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white/20 rounded-lg">
             <GraduationCap className="w-6 h-6" />
@@ -83,11 +87,11 @@ const App: React.FC = () => {
         )}
       </nav>
 
-      <main className="flex-grow container mx-auto p-4 md:p-8">
+      <main className="flex-grow container mx-auto p-4 md:p-8 relative z-10">
         {renderContent()}
       </main>
 
-      <footer className="bg-white border-t py-4 text-center text-gray-500 text-sm">
+      <footer className="bg-white/80 backdrop-blur-md border-t py-4 text-center text-gray-500 text-sm relative z-10">
         &copy; {new Date().getFullYear()} Class Advisor Management System. Designed for Excellence.
       </footer>
     </div>

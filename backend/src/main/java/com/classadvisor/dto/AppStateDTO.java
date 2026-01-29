@@ -13,6 +13,7 @@ public class AppStateDTO {
     private List<AttendanceRecord> attendance;
     private List<MasterAttendanceRecord> masterAttendance;
     private List<SemesterGrade> semesterGrades;
+    private List<Staff> staff;
     private ConfigDTO config;
 
     @Data

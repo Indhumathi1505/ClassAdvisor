@@ -916,49 +916,151 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
             <h3 className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-2"><Upload className="w-6 h-6" /> Semester Grade Processing</h3>
 
             <div className="bg-brand-light p-8 rounded-3xl border border-brand-primary/10 space-y-6">
-              <div className="flex flex-wrap gap-6 items-end">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-brand-primary uppercase mb-2">Select Semester</label>
-                  <select
-                    value={uploadSem}
-                    onChange={(e) => setUploadSem(parseInt(e.target.value))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20"
+
+              {/* Step 1: Convert */}
+              <div className="bg-white p-6 rounded-2xl border border-brand-primary/10 shadow-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 bg-brand-primary text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest z-10">Step 1</div>
+                <h4 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-wide mb-2"><FileText className="w-5 h-5 text-brand-primary" /> Convert PDF to Excel</h4>
+                <p className="text-xs text-gray-500 mb-6 max-w-2xl leading-relaxed">
+                  Select the Semester to create a <b>Template Excel Sheet</b> matched to your subjects, then upload the PDF to fill it.
+                </p>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="min-w-[150px]">
+                    <label className="block text-[10px] font-black text-brand-primary uppercase mb-2">Select Semester</label>
+                    <select
+                      value={uploadSem}
+                      onChange={(e) => setUploadSem(parseInt(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20"
+                    >
+                      {[...Array(state.config.semesters)].map((_, i) => <option key={i + 1} value={i + 1}>Semester {i + 1}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-[10px] font-black text-brand-primary uppercase mb-2">Upload Result PDF</label>
+                    <label
+                      className={`flex items-center justify-center gap-3 w-full border-2 border-dashed rounded-xl px-4 py-2.5 cursor-pointer transition-all ${uploadFile ? 'border-brand-primary bg-brand-light/20 text-brand-primary' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-brand-primary/40'}`}
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="font-bold text-sm truncate">{uploadFile ? uploadFile.name : 'Select PDF'}</span>
+                      <input type="file" accept=".pdf" className="hidden" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!uploadFile) return alert("Select PDF first");
+                      setUploadLoading(true);
+                      try {
+                        const blob = await api.convertPdfToCsv(uploadFile, uploadSem);
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Grades_Template_Sem${uploadSem}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setUploadFile(null); // Clear for next step
+                        alert("Template Generated! Please check downloads.");
+                      } catch (e) {
+                        console.error(e);
+                        alert("Conversion Failed");
+                      } finally {
+                        setUploadLoading(false);
+                      }
+                    }}
+                    disabled={uploadLoading || !uploadFile}
+                    className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center gap-2 ${uploadLoading ? 'bg-gray-300 cursor-not-allowed' : 'bg-brand-deep text-white hover:bg-black'}`}
                   >
-                    {[...Array(state.config.semesters)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>Semester {i + 1}</option>
-                    ))}
-                  </select>
+                    {uploadLoading ? 'Generating...' : 'Get Excel'} <Download className="w-4 h-4" />
+                  </button>
                 </div>
-                <div className="flex-1 min-w-[300px]">
-                  <label className="block text-[10px] font-black text-brand-primary uppercase mb-2">Upload Grade Sheet (PDF)</label>
-                  <label
-                    className={`flex items-center justify-center gap-3 w-full border-2 border-dashed rounded-xl px-4 py-3 cursor-pointer transition-all ${uploadFile ? 'border-brand-primary bg-white text-brand-primary' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-brand-primary/40'}`}
-                  >
-                    <Upload className="w-5 h-5" />
-                    <span className="font-bold text-sm truncate">{uploadFile ? uploadFile.name : 'Click to select PDF'}</span>
+              </div>
+
+              {/* Step 2: Upload CSV */}
+              <div className="bg-white p-6 rounded-2xl border border-brand-primary/10 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-brand-secondary text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest z-10">Step 2</div>
+                <h4 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-wide mb-2"><FileSpreadsheet className="w-5 h-5 text-green-600" /> Upload Verified Excel (CSV)</h4>
+                <p className="text-xs text-gray-500 mb-6 max-w-2xl leading-relaxed">
+                  Upload the <b>verified CSV file</b> here to map grades to students. Ensure "Register Number" column exists.
+                </p>
+                <div className="flex gap-4 items-end">
+                  <div className="min-w-[150px]">
+                    <label className="block text-[10px] font-black text-brand-secondary uppercase mb-2">Target Semester</label>
+                    <select
+                      value={uploadSem}
+                      onChange={(e) => setUploadSem(parseInt(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-brand-secondary/20"
+                    >
+                      {[...Array(state.config.semesters)].map((_, i) => <option key={i + 1} value={i + 1}>Semester {i + 1}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-black text-brand-secondary uppercase mb-2">Select Verified CSV</label>
                     <input
                       type="file"
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      accept=".csv"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (!confirm(`Upload grades from ${file.name} to Semester ${uploadSem}?`)) return;
+
+                        setUploadLoading(true);
+                        try {
+                          const updated = await api.uploadCsvGrades(file, uploadSem);
+                          updateState({ semesterGrades: updated });
+                          alert("Grades Mapped Successfully!");
+                        } catch (err) {
+                          console.error(err);
+                          alert("Failed to upload grades. Check CSV format.");
+                        } finally {
+                          setUploadLoading(false);
+                          e.target.value = ''; // Reset input
+                        }
+                      }}
+                      className="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2.5 file:px-4
+                              file:rounded-xl file:border-0
+                              file:text-xs file:font-black file:uppercase file:tracking-widest
+                              file:bg-brand-secondary file:text-white
+                              hover:file:bg-brand-primary transition-all
+                              cursor-pointer"
                     />
-                  </label>
+                  </div>
                 </div>
+              </div>
+
+              {/* Step 3: Download Consolidated Report */}
+              <div className="bg-white p-6 rounded-2xl border border-brand-primary/10 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest z-10">Step 3</div>
+                <h4 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-wide mb-2"><FileSpreadsheet className="w-5 h-5 text-gray-900" /> Consolidated Report</h4>
+                <p className="text-xs text-gray-500 mb-6 max-w-2xl leading-relaxed">
+                  Download a single Excel file containing all semester grades, separated by sheets. Ideal for overall analysis.
+                </p>
                 <button
-                  onClick={handleGradeUpload}
-                  disabled={uploadLoading || !uploadFile}
-                  className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center gap-2 ${uploadLoading || !uploadFile ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand-primary text-white hover:bg-brand-secondary'}`}
+                  onClick={async () => {
+                    try {
+                      setUploadLoading(true);
+                      const blob = await api.downloadConsolidatedExcel();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `Consolidated_Semester_Grades.xlsx`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } catch (e) {
+                      console.error(e);
+                      alert("Download Failed");
+                    } finally {
+                      setUploadLoading(false);
+                    }
+                  }}
+                  disabled={uploadLoading}
+                  className="px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center gap-2 bg-brand-deep text-white hover:bg-black"
                 >
-                  {uploadLoading ? 'Processing...' : 'Auto-Map Grades'}
-                  <FileCheck className="w-4 h-4" />
+                  <Download className="w-4 h-4" /> Download Consolidated Excel
                 </button>
               </div>
-              <div className="flex items-start gap-3 p-4 bg-white rounded-2xl border border-brand-primary/10">
-                <div className="p-2 bg-brand-light rounded-lg"><Settings className="w-4 h-4 text-brand-primary" /></div>
-                <p className="text-xs text-brand-accent italic leading-relaxed">
-                  Our AI scanner automatically maps grades to students based on Register Numbers and Subject Codes found in the document. <b>Zero manual mapping required.</b>
-                </p>
-              </div>
+
             </div>
 
             <div className="space-y-4">
@@ -994,53 +1096,73 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {state.semesterGrades?.length > 0 ? (
-                      state.semesterGrades
-                        .filter(g => g.semesterId === uploadSem)
-                        .map(g => (
-                          <tr key={g.id} className="hover:bg-brand-light/30 transition-colors">
-                            <td className="px-6 py-4 font-mono font-bold text-brand-primary border-r">{g.studentRegNo}</td>
-                            <td className="px-6 py-4 font-bold text-gray-600 border-r text-center">Sem {g.semesterId}</td>
+                    {state.students.length > 0 ? (
+                      state.students.map(student => {
+                        const g = state.semesterGrades?.find(grade => grade.studentRegNo === student.registerNumber && grade.semesterId === uploadSem);
+                        return (
+                          <tr key={student.registerNumber} className="hover:bg-brand-light/30 transition-colors">
+                            <td className="px-6 py-4 font-mono font-bold text-brand-primary border-r">
+                              <div>{student.name}</div>
+                              <div className="text-[10px] text-gray-400">{student.registerNumber}</div>
+                            </td>
+                            <td className="px-6 py-4 font-bold text-gray-600 border-r text-center">Sem {uploadSem}</td>
                             <td className="px-6 py-4">
-                              {gradeViewSubject === 'all' ? (
-                                <div className="flex flex-wrap gap-2 text-center">
-                                  {Object.entries(JSON.parse(g.results)).map(([code, grade]) => (
-                                    <span key={code} className={`px-2 py-0.5 rounded text-[10px] font-bold ${grade === 'U' || grade === 'UA' ? 'bg-red-50 text-red-500 border border-red-100' : 'bg-gray-100'}`} title={getSubjectName(code)}>
-                                      {code}: {grade as string}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="text-center">
-                                  {(() => {
-                                    const res = JSON.parse(g.results);
-                                    const grade = res[gradeViewSubject];
-                                    return grade ? (
-                                      <span className={`px-4 py-1.5 rounded-lg text-lg font-black ${grade === 'U' || grade === 'UA' ? 'text-red-500 bg-red-50 border-2 border-red-200 animate-pulse' : 'text-brand-primary'}`}>
-                                        {grade}
+                              {g ? (
+                                gradeViewSubject === 'all' ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.entries(JSON.parse(g.results)).map(([code, grade]) => (
+                                      <span key={code} className={`px-2 py-1 rounded-md text-[10px] font-black shadow-sm flex items-center gap-1 border ${grade === 'U' || grade === 'UA' || grade === 'RA'
+                                        ? 'bg-red-50 text-red-600 border-red-100'
+                                        : grade === 'O' || grade === 'A+'
+                                          ? 'bg-green-50 text-green-700 border-green-100'
+                                          : 'bg-indigo-50 text-brand-primary border-indigo-100'
+                                        }`} title={getSubjectName(code)}>
+                                        <span className="opacity-50 text-[8px]">{code}</span>
+                                        <span>{grade as string}</span>
                                       </span>
-                                    ) : (
-                                      <span className="text-gray-300 font-bold">N/A</span>
-                                    );
-                                  })()}
-                                </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    {(() => {
+                                      const res = JSON.parse(g.results);
+                                      const grade = res[gradeViewSubject];
+                                      return grade ? (
+                                        <span className={`px-4 py-1.5 rounded-lg text-lg font-black ${grade === 'U' || grade === 'UA' || grade === 'RA' ? 'text-red-500 bg-red-50 border-2 border-red-200 animate-pulse' : 'text-brand-primary'}`}>
+                                          {grade}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-300 font-bold">N/A</span>
+                                      );
+                                    })()}
+                                  </div>
+                                )
+                              ) : (
+                                <div className="text-center text-gray-300 italic text-xs font-bold">No data found in sheet</div>
                               )}
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <span className="text-green-500 bg-green-50 px-2 py-1 rounded-full text-[10px] font-black uppercase">Mapped</span>
+                              {g ? (
+                                <span className="text-green-500 bg-green-50 px-2 py-1 rounded-full text-[10px] font-black uppercase">Mapped</span>
+                              ) : (
+                                <span className="text-gray-400 bg-gray-100 px-2 py-1 rounded-full text-[10px] font-black uppercase italic">Pending</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <button
-                                onClick={() => setViewingGradeDetails(g)}
-                                className="text-brand-primary hover:text-brand-secondary transition-colors"
-                              >
-                                <Eye className="w-5 h-5" />
-                              </button>
+                              {g && (
+                                <button
+                                  onClick={() => setViewingGradeDetails(g)}
+                                  className="text-brand-primary hover:text-brand-secondary transition-colors"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                              )}
                             </td>
                           </tr>
-                        ))
+                        );
+                      })
                     ) : (
-                      <tr><td colSpan={4} className="py-12 text-center text-gray-400 italic">No grade data processed for Semester {uploadSem}.</td></tr>
+                      <tr><td colSpan={5} className="py-12 text-center text-gray-400 italic">No students registered in the system.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1067,15 +1189,35 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                     <span>Obtained Grade</span>
                   </div>
                   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
-                    {Object.entries(JSON.parse(viewingGradeDetails.results)).map(([code, grade]) => (
-                      <div key={code} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <div>
-                          <p className="font-black text-gray-900 leading-tight">{getSubjectName(code)}</p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase font-mono">{code}</p>
+                    {state.subjects.filter(s => s.semesterId === viewingGradeDetails.semesterId).map(subject => {
+                      const res = JSON.parse(viewingGradeDetails.results);
+                      const grade = res[subject.code] || res[subject.code.toUpperCase()] || res[subject.code.toLowerCase()];
+                      return (
+                        <div key={subject.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <div>
+                            <p className="font-black text-gray-900 leading-tight">{subject.name}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase font-mono">{subject.code}</p>
+                          </div>
+                          <div className={`text-2xl font-black ${grade === 'U' || grade === 'UA' || grade === 'RA' ? 'text-red-500' : grade ? 'text-brand-primary' : 'text-gray-300'}`}>
+                            {grade || 'N/A'}
+                          </div>
                         </div>
-                        <div className={`text-2xl font-black ${grade === 'U' || grade === 'UA' ? 'text-red-500' : 'text-brand-primary'}`}>{grade as string}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {/* Also show any extra codes found in the result that aren't in our subject list */}
+                    {Object.entries(JSON.parse(viewingGradeDetails.results))
+                      .filter(([code]) => !state.subjects.some(s => s.code.toLowerCase() === code.toLowerCase()))
+                      .map(([code, grade]) => (
+                        <div key={code} className="flex justify-between items-center bg-brand-light/20 p-4 rounded-2xl border border-dashed border-brand-primary/20">
+                          <div>
+                            <p className="font-black text-brand-primary italic leading-tight">External Result</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase font-mono">{code}</p>
+                          </div>
+                          <div className={`text-2xl font-black ${grade === 'U' || grade === 'UA' || grade === 'RA' ? 'text-red-500' : 'text-brand-primary'}`}>
+                            {grade as string}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
                 <button onClick={() => setViewingGradeDetails(null)} className="w-full mt-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-[1.02] transition-all active:scale-95 shadow-xl">Close Profile</button>

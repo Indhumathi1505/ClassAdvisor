@@ -1,8 +1,10 @@
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\MasterAttendanceRecord.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\MarkRecordRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\SemesterGradeRepository.java
+C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\Staff.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\LabMarkRecord.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\Subject.java
+C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\StaffRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\entity\AttendanceRecord.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\repository\MasterAttendanceRecordRepository.java
 C:\Users\indhu\Downloads\class-advisor-pro\backend\src\main\java\com\classadvisor\controller\ApiController.java

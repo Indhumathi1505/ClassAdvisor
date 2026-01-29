@@ -61,6 +61,14 @@ export interface SemesterGrade {
   pdfPath?: string;
 }
 
+export interface Staff {
+  id?: number;
+  name: string;
+  semesterId: number;
+  subjectCode: string;
+  subjectName: string;
+}
+
 export interface AppState {
   students: Student[];
   subjects: Subject[];
@@ -69,6 +77,7 @@ export interface AppState {
   attendance: AttendanceRecord[];
   masterAttendance: MasterAttendanceRecord[];
   semesterGrades: SemesterGrade[];
+  staff: Staff[];
   config: {
     years: number;
     semesters: number;
