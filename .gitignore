@@ -1,0 +1,15 @@
+# Spring Boot
+backend/target/
+backend/.mvn/
+backend/*.jar
+
+# Node / React
+**/node_modules/
+frontend/dist/
+frontend/.env
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.zip
