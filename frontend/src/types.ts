@@ -67,6 +67,7 @@ export interface Staff {
   semesterId: number;
   subjectCode: string;
   subjectName: string;
+  password?: string;
 }
 
 export interface AppState {

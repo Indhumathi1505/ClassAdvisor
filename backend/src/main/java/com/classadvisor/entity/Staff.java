@@ -21,14 +21,18 @@ public class Staff {
     @Column(nullable = false)
     private String subjectName;
 
+    @Column(nullable = false)
+    private String password;
+
     // Constructors
     public Staff() {}
 
-    public Staff(String name, Integer semesterId, String subjectCode, String subjectName) {
+    public Staff(String name, Integer semesterId, String subjectCode, String subjectName, String password) {
         this.name = name;
         this.semesterId = semesterId;
         this.subjectCode = subjectCode;
         this.subjectName = subjectName;
+        this.password = password;
     }
 
     // Getters and Setters
@@ -70,5 +74,13 @@ public class Staff {
 
     public void setSubjectName(String subjectName) {
         this.subjectName = subjectName;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

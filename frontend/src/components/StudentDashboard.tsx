@@ -22,6 +22,11 @@ interface StudentDashboardProps {
 
 const COLORS = ['#046e84', '#0694b3', '#08b9e1', '#06cdee', '#00e5ff'];
 
+const GRADE_POINTS: Record<string, number> = {
+  'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5,
+  'U': 0, 'UA': 0, 'RA': 0, 'AB': 0, 'W': 0, 'SA': 0
+};
+
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'grades' | 'marks_ledger'>('overview');
   const [viewSemester, setViewSemester] = useState<number>(1);
@@ -29,46 +34,172 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
 
   const student = useMemo(() => state.students.find(s => s.registerNumber === studentRegNo), [state.students, studentRegNo]);
 
-  const relevantMarks = useMemo(() =>
-    state.marks.filter(m => m.studentRegNo === studentRegNo && Number(m.semesterId) === Number(viewSemester) && Number(m.internalId) === Number(viewInternal)),
-    [state.marks, studentRegNo, viewSemester, viewInternal]
-  );
-
-  const relevantMasterAtt = useMemo(() =>
-    state.masterAttendance.find(ma => ma.studentRegNo === studentRegNo && Number(ma.semesterId) === Number(viewSemester) && Number(ma.internalId) === Number(viewInternal)),
-    [state.masterAttendance, studentRegNo, viewSemester, viewInternal]
-  );
-
-  const relevantSubjects = useMemo(() =>
-    state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)),
-    [state.subjects, viewSemester]
+  const allSemesterGrades = useMemo(() =>
+    state.semesterGrades.filter(g => g.studentRegNo === studentRegNo),
+    [state.semesterGrades, studentRegNo]
   );
 
   const stats = useMemo(() => {
-    const totalMarks = relevantMarks.reduce((acc, curr) => acc + curr.marks, 0);
-    const avgMarks = relevantMarks.length > 0 ? totalMarks / relevantMarks.length : 0;
+    const relevantMarks = state.marks.filter(m => m.studentRegNo === studentRegNo && Number(m.semesterId) === Number(viewSemester) && Number(m.internalId) === Number(viewInternal));
+    const relevantMasterAtt = state.masterAttendance.find(ma => ma.studentRegNo === studentRegNo && Number(ma.semesterId) === Number(viewSemester) && Number(ma.internalId) === Number(viewInternal));
+    const subjects = state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester));
+
+    const subjectMarks = subjects.map(sub => {
+      const record = relevantMarks.find(m => m.subjectId === sub.id || m.subjectId === sub.code);
+      return record ? record.marks : null;
+    }).filter(m => m !== null) as number[];
+
+    const totalMarks = subjectMarks.reduce((acc, curr) => acc + curr, 0);
+    const avgMarks = subjectMarks.length > 0 ? totalMarks / subjectMarks.length : 0;
     const attPercentage = relevantMasterAtt?.percentage ?? 0;
 
-    const pieData = relevantMarks.map((m, i) => ({
-      name: state.subjects.find(s => s.id === m.subjectId)?.name || m.subjectId,
-      value: m.marks
-    }));
+    const pieData = subjects.map((sub) => {
+      const record = relevantMarks.find(m => m.subjectId === sub.id || m.subjectId === sub.code);
+      if (!record) return null;
+      return { name: sub.name, value: record.marks };
+    }).filter(d => d !== null) as { name: string, value: number }[];
 
-    const attendanceData = [
-      { name: 'Attended', value: attPercentage },
-      { name: 'Absent', value: 100 - attPercentage }
-    ];
-
-    return { totalMarks, avgMarks, attPercentage, pieData, attendanceData };
-  }, [relevantMarks, relevantMasterAtt, state.subjects]);
+    return {
+      totalMarks,
+      avgMarks,
+      attPercentage,
+      pieData,
+      attendanceData: [{ name: 'Attended', value: attPercentage }, { name: 'Absent', value: 100 - attPercentage }]
+    };
+  }, [state, studentRegNo, viewSemester, viewInternal]);
 
   const semesterGrade = useMemo(() =>
-    state.semesterGrades?.find(g => g.studentRegNo === studentRegNo && Number(g.semesterId) === Number(viewSemester)),
-    [state.semesterGrades, studentRegNo, viewSemester]
+    allSemesterGrades.find(g => Number(g.semesterId) === Number(viewSemester)),
+    [allSemesterGrades, viewSemester]
   );
 
+  const cgpa = useMemo(() => {
+    if (allSemesterGrades.length === 0) return 0;
+    let totalPoints = 0;
+    let totalSubjects = 0;
+    allSemesterGrades.forEach(sg => {
+      try {
+        const results = JSON.parse(sg.results);
+        Object.values(results).forEach(grade => {
+          totalPoints += GRADE_POINTS[grade as string] || 0;
+          totalSubjects++;
+        });
+      } catch (e) { }
+    });
+    return totalSubjects > 0 ? totalPoints / totalSubjects : 0;
+  }, [allSemesterGrades]);
+
+  const gpa = useMemo(() => {
+    if (!semesterGrade) return 0;
+    try {
+      const results = JSON.parse(semesterGrade.results);
+      const grades = Object.values(results) as string[];
+      if (grades.length === 0) return 0;
+      const totalPoints = grades.reduce((acc, g) => acc + (GRADE_POINTS[g] || 0), 0);
+      return totalPoints / grades.length;
+    } catch (e) { return 0; }
+  }, [semesterGrade]);
+
+  const handleDownloadPDF = async () => {
+    if (!semesterGrade || !student) return;
+
+    try {
+      // @ts-ignore
+      const jspdfModule = await import('jspdf');
+      const autotableModule = await import('jspdf-autotable');
+
+      const jsPDF = (jspdfModule.default || jspdfModule.jsPDF || jspdfModule) as any;
+      const autoTable = (autotableModule.default || autotableModule) as any;
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Premium Header
+      doc.setFillColor(4, 110, 132); // #046e84
+      doc.rect(0, 0, pageWidth, 40, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ACADEMIC GRADE SHEET', pageWidth / 2, 20, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Semester ${viewSemester} | Generated on ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: 'center' });
+
+      // Student Info
+      doc.setTextColor(40, 40, 40);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Student: ${student.name}`, 14, 55);
+      doc.text(`Reg No: ${student.registerNumber}`, 14, 62);
+      doc.text(`Roll No: ${student.rollNumber}`, 14, 69);
+
+      // GPA/CGPA Summary
+      doc.setFillColor(248, 250, 252);
+      doc.rect(140, 50, 56, 25, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(140, 50, 56, 25, 'S');
+
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.text('SEMESTER GPA', 145, 58);
+      doc.setTextColor(4, 110, 132);
+      doc.setFontSize(16);
+      doc.text(gpa.toFixed(2), 145, 68);
+
+      // table data
+      const results = JSON.parse(semesterGrade.results);
+      const tableData = Object.entries(results).map(([code, grade]) => {
+        const subName = state.subjects.find(s => s.code === code)?.name || 'N/A';
+        return [code, subName, grade];
+      });
+
+      // @ts-ignore
+      autoTable(doc, {
+        startY: 85,
+        head: [['Code', 'Subject Name', 'Grade']],
+        body: tableData,
+        headStyles: {
+          fillColor: [4, 110, 132],
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { cellWidth: 30, fontStyle: 'bold', halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 20, fontStyle: 'bold', halign: 'center' }
+        },
+        styles: {
+          font: 'helvetica',
+          fontSize: 9,
+          cellPadding: 6,
+          lineColor: [230, 230, 230],
+          lineWidth: 0.1,
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250]
+        }
+      });
+
+      // CGPA Info
+      // @ts-ignore
+      const finalY = (doc as any).lastAutoTable.finalY || 150;
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Cumulative CGPA: ${cgpa.toFixed(2)}`, 14, finalY + 15);
+
+      doc.save(`${student.registerNumber}_Sem${viewSemester}_Results.pdf`);
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      alert('PDF Download failed. Please ensure jspdf and jspdf-autotable are installed.');
+    }
+  };
+
   const performanceTrends = useMemo(() => {
-    return state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+    const subjects = state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester));
+    return subjects.map(sub => {
       const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 1)?.marks || 0;
       const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 2)?.marks || 0;
       return {
@@ -77,7 +208,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
         'Internal 2': int2
       };
     });
-  }, [state.marks, state.subjects, studentRegNo, viewSemester]);
+  }, [state, viewSemester, studentRegNo]);
+
+  const relevantSubjects = useMemo(() => state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)), [state.subjects, viewSemester]);
 
   if (!student) return <div className="p-8 text-center text-red-500">Student profile not found.</div>;
 
@@ -91,7 +224,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
             </div>
             <div>
               <h2 className="text-3xl font-black tracking-tight">{student.name}</h2>
-              <div className="flex gap-4 mt-1 text-brand-accent/80 font-medium">
+              <div className="flex gap-4 mt-1 text-brand-accent/80 font-medium font-serif">
                 <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> Reg: {student.registerNumber}</span>
                 <span className="flex items-center gap-1.5"><Award className="w-4 h-4" /> Roll: {student.rollNumber}</span>
               </div>
@@ -103,8 +236,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
               <p className="text-2xl font-black">{stats.attPercentage.toFixed(1)}%</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] uppercase font-black text-brand-accent/60">Avg Marks</p>
-              <p className="text-2xl font-black">{stats.avgMarks.toFixed(1)}</p>
+              <p className="text-[10px] uppercase font-black text-brand-accent/60">Overall CGPA</p>
+              <p className="text-2xl font-black">{cgpa.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -126,7 +259,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
             <select
               value={viewSemester}
               onChange={(e) => setViewSemester(parseInt(e.target.value))}
-              className="font-bold text-white bg-[#131b2e] outline-none cursor-pointer p-1 rounded border border-gray-700"
+              className="font-bold text-white bg-[#131b2e] outline-none cursor-pointer p-1 rounded border border-gray-700 font-serif"
             >
               {[...Array(state.config.semesters)].map((_, i) => (
                 <option key={i + 1} value={i + 1} className="bg-[#131b2e] text-white">Semester {i + 1}</option>
@@ -175,7 +308,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {(() => {
                       const results = JSON.parse(semesterGrade.results);
-                      return state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+                      return relevantSubjects.map(sub => {
                         const gradeKey = Object.keys(results).find(k => k.toLowerCase() === sub.code.toLowerCase());
                         const grade = gradeKey ? results[gradeKey] : null;
 
@@ -184,7 +317,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                         return (
                           <div key={sub.code} className="bg-white p-3 rounded-xl border flex justify-between items-center shadow-sm">
                             <span className="text-[10px] font-black text-gray-400 uppercase">{sub.code}</span>
-                            <span className={`font-black text-lg ${['U', 'UA', 'RA', 'AB'].includes(grade) ? 'text-red-500' : 'text-brand-deep'}`}>{grade}</span>
+                            <span className={`font-black text-lg ${['U', 'UA', 'RA', 'AB', 'W'].includes(grade) ? 'text-red-500' : 'text-brand-deep'}`}>{grade}</span>
                           </div>
                         );
                       });
@@ -194,23 +327,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
               )}
 
               <div className="space-y-4">
-                {state.subjects.filter(s => Number(s.semesterId) === viewSemester).map(sub => {
-                  const subMark = relevantMarks.find(m => m.subjectId === sub.id || m.subjectId === sub.code);
+                {relevantSubjects.map(sub => {
+                  const subMark = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.semesterId) === Number(viewSemester) && Number(m.internalId) === Number(viewInternal));
                   const labMark = state.labMarks.find(l => l.studentRegNo === studentRegNo && (l.subjectId === sub.id || l.subjectId === sub.code) && l.semesterId === viewSemester && l.internalId === viewInternal);
                   return (
                     <div key={sub.id} className="p-4 bg-gray-50 rounded-xl border border-transparent hover:border-brand-primary/20 transition-all flex justify-between items-center">
                       <div>
                         <h4 className="font-bold text-gray-900 leading-tight">{sub.name}</h4>
-                        <p className="text-xs text-gray-500 font-mono">{sub.code}</p>
+                        <p className="text-xs text-gray-500 font-mono font-serif">{sub.code}</p>
                       </div>
                       <div className="flex gap-6 items-center">
                         <div className="text-right">
-                          <p className="text-[10px] font-black text-gray-400 uppercase">Marks</p>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Marks</p>
                           <p className="font-black text-lg text-brand-secondary">{subMark?.marks ?? '--'}</p>
                         </div>
                         {labMark && (
                           <div className="text-right border-l pl-6 border-gray-200">
-                            <p className="text-[10px] font-black text-emerald-500 uppercase">Lab Marks</p>
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Lab Marks</p>
                             <p className="font-black text-lg text-emerald-600">{labMark.marks}</p>
                           </div>
                         )}
@@ -218,80 +351,24 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                     </div>
                   );
                 })}
-                {state.subjects.filter(s => Number(s.semesterId) === viewSemester).length === 0 && (
-                  <div className="text-center py-10">
-                    <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-2" />
-                    <p className="text-gray-400 italic text-sm">No subjects registered for Semester {viewSemester}.</p>
-                  </div>
-                )}
               </div>
             </section>
-
-            {/* Performance Improvement Trend */}
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
-              <h3 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
-                <TrendingUp className="w-6 h-6 text-brand-primary" /> Performance Improvement Trend
-              </h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={performanceTrends}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} fontStyle="bold" />
-                    <YAxis domain={[0, 100]} axisLine={false} tickLine={false} fontSize={10} tickFormatter={(val) => `${val}%`} />
-                    <ReTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }} />
-                    <ReLegend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
-                    <Bar name="Internal 1" dataKey="Internal 1" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={24} />
-                    <Bar name="Internal 2" dataKey="Internal 2" fill="#046e84" radius={[4, 4, 0, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="mt-6 text-[10px] text-gray-400 font-black uppercase tracking-widest text-center">Internal 1 vs Internal 2 Progress Analysis</p>
-            </div>
           </div>
 
-          {/* Sidebar / Internal Summary */}
           <div className="space-y-8">
             <div className="bg-brand-primary text-white p-6 rounded-3xl shadow-xl">
               <div className="flex items-center gap-3 mb-6">
                 <BarChart2 className="w-8 h-8 text-yellow-400" />
-                <h3 className="font-black text-xl italic uppercase tracking-tighter">Internal Stats</h3>
+                <h3 className="font-black text-xl italic uppercase tracking-tighter">Performance</h3>
               </div>
               <div className="space-y-4">
                 <div className="p-4 bg-white/10 rounded-2xl flex flex-col items-center text-center">
-                  <p className="text-[10px] font-black text-brand-accent/30 uppercase tracking-widest mb-1">Internal Attendance</p>
-                  <p className={`text-4xl font-black ${stats.attPercentage < 75 ? 'text-red-400' : 'text-green-400'}`}>
-                    {stats.attPercentage.toFixed(1)}%
-                  </p>
-                  <p className="text-[10px] text-white/50 mt-2 italic">Uploaded by Class Advisor</p>
+                  <p className="text-[10px] font-black text-brand-accent/30 uppercase tracking-widest mb-1">Semester GPA</p>
+                  <p className="text-4xl font-black text-white">{gpa.toFixed(2)}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-white/5 rounded-xl text-center">
-                    <p className="text-[9px] font-black text-brand-accent/30 uppercase">Total Marks</p>
-                    <p className="font-black text-lg">{stats.totalMarks}</p>
-                  </div>
-                  <div className="p-3 bg-white/5 rounded-xl text-center">
-                    <p className="text-[9px] font-black text-brand-accent/30 uppercase">Avg Mark</p>
-                    <p className="font-black text-lg">{stats.avgMarks.toFixed(1)}</p>
-                    <p className="text-[8px] text-brand-accent/30">Excludes Lab</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h4 className="font-black text-gray-900 mb-4 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-500" /> Official Status
-              </h4>
-              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-gray-500">Eligibility</span>
-                  <span className={`font-black px-2 py-0.5 rounded ${stats.attPercentage >= 75 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {stats.attPercentage >= 75 ? 'ELIGIBLE' : 'LOW ATTENDANCE'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-gray-500">Exam Clearance</span>
-                  <span className="font-black text-brand-accent">PENDING</span>
+                <div className="p-4 bg-white/10 rounded-2xl flex flex-col items-center text-center">
+                  <p className="text-[10px] font-black text-brand-accent/30 uppercase tracking-widest mb-1">Cumulative CGPA</p>
+                  <p className="text-4xl font-black text-green-400">{cgpa.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -302,36 +379,28 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
           <section className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
             <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2"><BarChart2 className="w-5 h-5 text-brand-primary" /> Internal Marks Ledger</h3>
             <div className="overflow-x-auto border rounded-xl shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 border-b">
+              <table className="w-full text-left text-sm font-serif">
+                <thead className="bg-brand-deep text-white border-b">
                   <tr>
-                    <th className="px-6 py-4 font-black uppercase text-xs text-gray-500">Subject Code</th>
-                    <th className="px-6 py-4 font-black uppercase text-xs text-gray-500">Subject Name</th>
-                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Internal 1</th>
-                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Internal 2</th>
-                    <th className="px-6 py-4 font-black uppercase text-xs text-center text-gray-500">Avg</th>
+                    <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em]">Subject Code</th>
+                    <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em]">Subject Name</th>
+                    <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Internal 1</th>
+                    <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Internal 2</th>
+                    <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Avg</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
-                  {state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
-                    const m1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code)) && Number(m.internalId) === 1)?.marks;
-                    const m2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code)) && Number(m.internalId) === 2)?.marks;
-
-                    const v1 = m1 !== undefined ? m1 : 0;
-                    const v2 = m2 !== undefined ? m2 : 0;
-
+                <tbody className="divide-y font-sans">
+                  {relevantSubjects.map(sub => {
+                    const m1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 1)?.marks;
+                    const m2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 2)?.marks;
+                    const v1 = m1 || 0; const v2 = m2 || 0;
                     const avg = (v1 + v2) / 2;
-
                     return (
                       <tr key={sub.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-mono font-bold text-gray-600">{sub.code}</td>
                         <td className="px-6 py-4 font-bold text-gray-900">{sub.name}</td>
-                        <td className="px-6 py-4 text-center">
-                          {m1 !== undefined ? <span className="font-bold text-gray-700">{m1}</span> : <span className="text-gray-300">--</span>}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {m2 !== undefined ? <span className="font-bold text-gray-700">{m2}</span> : <span className="text-gray-300">--</span>}
-                        </td>
+                        <td className="px-6 py-4 text-center font-bold">{m1 ?? '--'}</td>
+                        <td className="px-6 py-4 text-center font-bold">{m2 ?? '--'}</td>
                         <td className="px-6 py-4 text-center">
                           <span className={`font-black px-3 py-1 rounded-full text-xs ${avg >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {avg.toFixed(1)}
@@ -340,9 +409,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
                       </tr>
                     );
                   })}
-                  {state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).length === 0 && (
-                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 italic">No subjects enrolled for this semester.</td></tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -353,33 +419,59 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
           <section className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="text-2xl font-black text-gray-900 leading-tight">University Results</h3>
-                <p className="text-sm text-gray-500">Official semester grade sheet mapped from University PDF.</p>
+                <h3 className="text-2xl font-black text-gray-900 leading-tight italic">University Results</h3>
+                <p className="text-sm text-gray-500">Official semester grade sheet mapped from University records.</p>
               </div>
               {semesterGrade && (
-                <button className="flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-secondary transition-all">
-                  <Download className="w-4 h-4" /> Download PDF
+                <button
+                  onClick={handleDownloadPDF}
+                  className="flex items-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-brand-primary/20"
+                >
+                  <Download className="w-4 h-4" /> Download PDF Report
                 </button>
               )}
             </div>
 
             {semesterGrade ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Object.entries(JSON.parse(semesterGrade.results)).map(([code, grade]) => {
-                  const subName = state.subjects.find(s => s.code === code)?.name || "Subject";
-                  return (
-                    <div key={code} className="p-6 bg-gray-50 rounded-2xl border border-transparent hover:border-brand-primary/20 transition-all">
-                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">{code}</p>
-                      <h4 className="font-bold text-gray-800 mb-4 line-clamp-1">{subName}</h4>
-                      <div className="flex items-end justify-between">
-                        <span className={`text-4xl font-black ${grade === 'U' || grade === 'UA' ? 'text-red-500' : 'text-brand-primary'}`}>
-                          {grade as string}
+              <div className="overflow-x-auto border rounded-2xl shadow-sm overflow-hidden">
+                <table className="w-full text-left font-serif">
+                  <thead className="bg-brand-deep text-white border-b">
+                    <tr>
+                      <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em]">Subject Code</th>
+                      <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em]">Subject Name</th>
+                      <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Grade</th>
+                      <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y font-sans">
+                    {Object.entries(JSON.parse(semesterGrade.results)).map(([code, grade]) => {
+                      const subName = state.subjects.find(s => s.code === code)?.name || "Subject";
+                      const points = GRADE_POINTS[grade as string] || 0;
+                      return (
+                        <tr key={code} className="hover:bg-brand-light/10 transition-colors">
+                          <td className="px-8 py-5 font-mono font-bold text-brand-primary">{code}</td>
+                          <td className="px-8 py-5 font-bold text-gray-800">{subName}</td>
+                          <td className="px-8 py-5 text-center">
+                            <span className={`text-xl font-black ${['U', 'UA', 'RA', 'AB', 'W'].includes(grade as string) ? 'text-red-500' : 'text-brand-deep'}`}>
+                              {grade as string}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5 text-center font-black text-gray-400">{points}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50 font-sans">
+                    <tr>
+                      <td colSpan={2} className="px-8 py-6 text-right font-black text-gray-500 text-xs uppercase tracking-widest">Semester Performance Index (GPA)</td>
+                      <td colSpan={2} className="px-8 py-6 text-center">
+                        <span className="bg-brand-primary text-white px-6 py-2 rounded-xl font-black text-2xl shadow-lg">
+                          {gpa.toFixed(2)}
                         </span>
-                        <span className="text-[10px] font-black px-2 py-1 bg-white rounded-lg shadow-sm border text-gray-400">GRADE</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             ) : (
               <div className="py-20 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-100">
@@ -396,7 +488,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ state, studentRegNo
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester)).map(sub => {
+                  <BarChart data={relevantSubjects.map(sub => {
                     const int1 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 1)?.marks || 0;
                     const int2 = state.marks.find(m => m.studentRegNo === studentRegNo && (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === 2)?.marks || 0;
                     return { name: sub.code, Avg: (int1 + int2) / 2 };

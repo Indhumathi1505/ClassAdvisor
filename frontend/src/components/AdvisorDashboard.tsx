@@ -1,16 +1,19 @@
 
 import React, { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { AppState, Student, Subject, UserRole, MasterAttendanceRecord } from '../types';
 import {
-  PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Legend as ReLegend, Tooltip as ReTooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
+  PieChart as RePieChart, Pie
 } from 'recharts';
 import {
-  Users, Book, FileText, Settings, Plus, Send,
-  Trash2, Download, Search, LayoutDashboard, ChevronRight, MessageCircle,
-  Megaphone, Filter, Layers, Hash, PieChart, BarChart3, Beaker, Edit2, Check, X, ClipboardList, UserCheck, FileSpreadsheet, Contact, GraduationCap, Upload, FileCheck, Eye
+  Users, UserPlus, BookOpen, Trash2, Download, MessageCircle, BarChart2, CheckCircle,
+  Megaphone, Filter, Layers, Hash, PieChart, BarChart3, Beaker, Edit2, Check, X, ClipboardList, UserCheck, FileSpreadsheet, Contact, GraduationCap, Upload, FileCheck, Eye, TrendingUp, MessageSquare,
+  Send, Search, Plus, ChevronRight, FileText, LayoutDashboard, Settings, Book
 } from 'lucide-react';
 import { api } from '../api.ts';
+
+const COLORS = ['#046e84', '#0694b3', '#08b9e1', '#06cdee', '#00e5ff'];
 
 interface AdvisorDashboardProps {
   state: AppState;
@@ -70,6 +73,15 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   const [viewingGradeDetails, setViewingGradeDetails] = useState<any | null>(null);
   const [gradeViewSubject, setGradeViewSubject] = useState<string>('all');
 
+  // Broadcast Queue States
+  const [broadcastQueue, setBroadcastQueue] = useState<{ student: Student, message: string }[]>([]);
+  const [currentBroadcastIndex, setCurrentBroadcastIndex] = useState<number>(-1);
+  const [broadcastType, setBroadcastType] = useState<'internal' | 'semester'>('internal');
+  const [isAutoPilot, setIsAutoPilot] = useState<boolean>(false);
+  const [isFlashMode, setIsFlashMode] = useState<boolean>(false);
+  const [nextSendTimer, setNextSendTimer] = useState<number>(0);
+  const [broadcastChannel, setBroadcastChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+
   const getSubjectName = (code: string) => {
     return state.subjects.find(s => s.code === code)?.name || code;
   };
@@ -81,8 +93,12 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   const [editStudentData, setEditStudentData] = useState<Student | null>(null);
 
   // Staff States
-  const [newStaff, setNewStaff] = useState({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+  const [newStaff, setNewStaff] = useState({ name: '', semesterId: 1, subjectCode: '', subjectName: '', password: 'staff123' });
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
+
+  // Attendance Entry States
+  const [attEntryMode, setAttEntryMode] = useState<'manual' | 'excel'>('manual');
+  const [attSuccessMsg, setAttSuccessMsg] = useState('');
 
   const isEvenInternal = viewInternal % 2 === 0;
 
@@ -181,33 +197,40 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   };
 
   // Master Attendance Handlers
-  const handleMasterAttendanceChange = (regNo: string, val: string) => {
-    let percentage = parseFloat(val) || 0;
+  const handleMasterAttendanceChange = async (regNo: string, val: string, skipStateUpdate = false) => {
+    let percentage = parseFloat(val);
+    if (isNaN(percentage)) return null;
 
     // Clamp percentage between 0 and 100
     if (percentage < 0) {
       percentage = 0;
-      alert("Attendance percentage cannot be negative. Setting to 0.");
+      if (!skipStateUpdate) alert("Attendance percentage cannot be negative. Setting to 0.");
     } else if (percentage > 100) {
       percentage = 100;
-      alert("Attendance percentage cannot exceed 100. Setting to 100.");
+      if (!skipStateUpdate) alert("Attendance percentage cannot exceed 100. Setting to 100.");
     }
 
-    const existing = state.masterAttendance.filter(ma =>
-      !(ma.studentRegNo === regNo && ma.semesterId === viewSemester && ma.internalId === viewInternal)
-    );
     const newRecord: MasterAttendanceRecord = {
       studentRegNo: regNo,
       semesterId: viewSemester,
       internalId: viewInternal,
       percentage: percentage
     };
-    api.saveMasterAttendance(newRecord).then(saved => {
-      updateState({ masterAttendance: [...existing, saved] });
-    }).catch(err => {
-      console.error("Failed to save master attendance");
-      alert("Failed to save attendance. Please ensure the value is between 0 and 100.");
-    });
+
+    try {
+      const saved = await api.saveMasterAttendance(newRecord);
+      if (!skipStateUpdate) {
+        const existing = state.masterAttendance.filter(ma =>
+          !(ma.studentRegNo === regNo && ma.semesterId === viewSemester && ma.internalId === viewInternal)
+        );
+        updateState({ masterAttendance: [...existing, saved] });
+      }
+      return saved;
+    } catch (err) {
+      console.error("Failed to save master attendance", err);
+      if (!skipStateUpdate) alert("Failed to save attendance. Please ensure the value is between 0 and 100.");
+      return null;
+    }
   };
 
   const getMasterAttendance = (regNo: string) => {
@@ -217,24 +240,50 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   };
 
   // Detailed Analysis Reporting
-  const getDetailedReportForInternal = (regNo: string, semesterId: number, internalId: number) => {
-    const relevantSubjects = state.subjects.filter(s => Number(s.semesterId) === Number(semesterId));
+  const getDetailedReportForInternal = (regNo: string, semesterId: number, internalId: number, relevantSubjects: Subject[]) => {
     const marks = state.marks.filter(m => m.studentRegNo === regNo && Number(m.semesterId) === Number(semesterId) && Number(m.internalId) === Number(internalId));
     const labMarks = state.labMarks.filter(l => l.studentRegNo === regNo && Number(l.semesterId) === Number(semesterId) && Number(l.internalId) === Number(internalId));
     const masterAtt = state.masterAttendance.find(ma => ma.studentRegNo === regNo && Number(ma.semesterId) === Number(semesterId) && Number(ma.internalId) === Number(internalId))?.percentage ?? 0;
 
-    const totalMarks = marks.reduce((acc, curr) => acc + curr.marks, 0);
-    const avgMarks = marks.length > 0 ? totalMarks / marks.length : 0;
-
     const subjectBreakdown = relevantSubjects.map(sub => ({
       name: sub.name,
       code: sub.code,
-      mark: marks.find(m => m.subjectId === sub.id || m.subjectId === sub.code || m.subjectId.includes(sub.code))?.marks ?? '-',
-      labMark: labMarks.find(l => l.subjectId === sub.id || l.subjectId === sub.code || l.subjectId.includes(sub.code))?.marks ?? '-',
+      mark: marks.find(m => m.subjectId === sub.id || m.subjectId === sub.code || (m.subjectId && m.subjectId.includes(sub.code)))?.marks ?? '-',
+      labMark: labMarks.find(l => l.subjectId === sub.id || l.subjectId === sub.code || (l.subjectId && l.subjectId.includes(sub.code)))?.marks ?? '-',
     }));
+
+    // Calculate totals ONLY for subjects displayed in the breakdown
+    const validMarks = subjectBreakdown.filter(s => s.mark !== '-').map(s => Number(s.mark));
+    const totalMarks = validMarks.reduce((acc, curr) => acc + curr, 0);
+    const avgMarks = validMarks.length > 0 ? totalMarks / validMarks.length : 0;
 
     return { totalMarks, avgMarks, masterAtt, subjectBreakdown };
   };
+
+  // Consolidate subjects from global list and staff mapping
+  const currentSemesterSubjects = useMemo(() => {
+    const subjectsFromGlobal = state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester));
+    const subjectsFromStaff = (state.staff || [])
+      .filter(s => Number(s.semesterId) === Number(viewSemester))
+      .map(s => ({
+        id: s.subjectCode,
+        code: s.subjectCode,
+        name: s.subjectName,
+        semesterId: s.semesterId,
+        assignedStaff: s.name,
+        staffPassword: ''
+      }));
+
+    // Merge by unique code
+    const combined = [...subjectsFromGlobal];
+    subjectsFromStaff.forEach(s => {
+      if (!combined.find(c => c.code === s.code)) {
+        combined.push(s);
+      }
+    });
+
+    return combined.sort((a, b) => a.code.localeCompare(b.code));
+  }, [state.subjects, state.staff, viewSemester]);
 
   // Class Statistics Calculations
   const classStats = useMemo(() => {
@@ -244,7 +293,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
     let totalAvgAtt = 0;
 
     state.students.forEach(s => {
-      const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
+      const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal, currentSemesterSubjects);
       totalAvgMark += report.avgMarks;
       totalAvgAtt += report.masterAtt;
     });
@@ -255,19 +304,18 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
       studentCount: state.students.length,
       reportList: state.students.map(s => {
         // Generate consolidated report for visual table
-        const r1 = getDetailedReportForInternal(s.registerNumber, viewSemester, 1);
-        const r2 = getDetailedReportForInternal(s.registerNumber, viewSemester, 2);
+        const r1 = getDetailedReportForInternal(s.registerNumber, viewSemester, 1, currentSemesterSubjects);
+        const r2 = getDetailedReportForInternal(s.registerNumber, viewSemester, 2, currentSemesterSubjects);
         return { student: s, int1: r1, int2: r2 };
       })
     };
-  }, [state.students, state.marks, state.masterAttendance, viewSemester, viewInternal]);
+  }, [state.students, state.marks, state.masterAttendance, viewSemester, viewInternal, currentSemesterSubjects]);
 
   // CSV Export Logic
   const handleExportCSV = () => {
-    const relevantSubjects = state.subjects.filter(s => s.semesterId === viewSemester);
     const headers = ["Register Number", "Roll Number", "Name"];
 
-    relevantSubjects.forEach(sub => {
+    currentSemesterSubjects.forEach(sub => {
       headers.push(`${sub.name} (Marks)`);
       if (isEvenInternal) headers.push(`${sub.name} (Lab)`);
     });
@@ -275,7 +323,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
     headers.push("Total Marks", "Average Marks", "Attendance (%)");
 
     const rows = state.students.map(s => {
-      const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
+      const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal, currentSemesterSubjects);
       const row = [s.registerNumber, s.rollNumber, s.name];
 
       report.subjectBreakdown.forEach(item => {
@@ -311,74 +359,151 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   );
 
   // WhatsApp Broadcast
-  const broadcastToAll = () => {
+  const startInternalBroadcast = () => {
     const lockKey = `sem-${viewSemester}-int-${viewInternal}`;
     if (broadcastLocked[lockKey]) {
       alert(`Broadcast for Semester ${viewSemester} Internal ${viewInternal} is already sent and locked.`);
       return;
     }
 
-    if (state.students.length === 0) {
-      alert("No students registered.");
+    const queue = state.students
+      .filter(s => s.parentWhatsApp && s.parentWhatsApp.trim() !== '')
+      .map(student => ({
+        student,
+        message: generateMessage(student, viewSemester, viewInternal)
+      }));
+
+    if (queue.length === 0) {
+      alert("No students with valid WhatsApp numbers found.");
       return;
     }
 
-    // Count how many parents have WhatsApp numbers
-    const parentsWithWhatsApp = state.students.filter(s => s.parentWhatsApp && s.parentWhatsApp.trim() !== '').length;
-
-    if (parentsWithWhatsApp === 0) {
-      alert("No parent WhatsApp numbers are registered. Please add parent contact numbers before broadcasting.");
-      return;
-    }
-
-    // Simplified confirmation
-    if (!confirm(`Are you sure you want to send reports to all ${parentsWithWhatsApp} parents? This will lock the broadcast for this session.`)) return;
-
-    // Lock broadcast
-    setBroadcastLocked(prev => ({ ...prev, [lockKey]: true }));
-
-    state.students.forEach((student, index) => {
-      if (student.parentWhatsApp && student.parentWhatsApp.trim() !== '') {
-        setTimeout(() => {
-          const message = generateMessage(student, viewSemester, viewInternal);
-          const encoded = encodeURIComponent(message);
-          window.open(`https://wa.me/${student.parentWhatsApp}?text=${encoded}`, '_blank');
-        }, index * 1200);
-      }
-    });
+    setBroadcastType('internal');
+    setBroadcastQueue(queue);
+    setCurrentBroadcastIndex(0);
   };
 
-  const broadcastSemesterSummary = () => {
+  const startSemesterBroadcast = () => {
     const lockKey = `sem-${viewSemester}-summary`;
     if (broadcastLocked[lockKey]) {
       alert(`Semester ${viewSemester} Summary has already been sent.`);
       return;
     }
 
-    const parentsWithWhatsApp = state.students.filter(s => s.parentWhatsApp && s.parentWhatsApp.trim() !== '').length;
-    if (parentsWithWhatsApp === 0) {
+    const queue = state.students
+      .filter(s => s.parentWhatsApp && s.parentWhatsApp.trim() !== '')
+      .map(student => ({
+        student,
+        message: generateSemesterSummaryMessage(student, viewSemester)
+      }));
+
+    if (queue.length === 0) {
       alert("No parent contact numbers found.");
       return;
     }
 
-    if (!confirm(`⚠️ CONSOLIDATED BROADCAST\n\nThis will send a full Semester ${viewSemester} report (Int 1, Int 2, Attendance & Univ. Grades) to ${parentsWithWhatsApp} parents.\n\nProceed?`)) return;
+    setBroadcastType('semester');
+    setBroadcastQueue(queue);
+    setCurrentBroadcastIndex(0);
+  };
 
-    setBroadcastLocked(prev => ({ ...prev, [lockKey]: true }));
+  // Ref for the persistent broadcast window
+  const broadcastWindowRef = React.useRef<Window | null>(null);
 
-    state.students.forEach((student, index) => {
-      if (student.parentWhatsApp && student.parentWhatsApp.trim() !== '') {
-        setTimeout(() => {
-          const message = generateSemesterSummaryMessage(student, viewSemester);
-          const encoded = encodeURIComponent(message);
-          window.open(`https://wa.me/${student.parentWhatsApp}?text=${encoded}`, '_blank');
-        }, index * 1500); // Slightly longer delay for heavy messaging
+  const processNextInQueue = () => {
+    if (currentBroadcastIndex < 0 || currentBroadcastIndex >= broadcastQueue.length) return;
+
+    const item = broadcastQueue[currentBroadcastIndex];
+    // Keep '+' for international routing (Phone Link requirement)
+    const phone = item.student.parentWhatsApp.trim().replace(/\s/g, '');
+    const encoded = encodeURIComponent(item.message);
+
+    // Support both WhatsApp and Native SMS
+    // Windows/Android uses ?body=, iOS uses &body=
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const url = broadcastChannel === 'whatsapp'
+      ? `https://api.whatsapp.com/send?phone=${phone.replace(/\+/g, '')}&text=${encoded}`
+      : `sms:${phone}${isIOS ? '&' : '?'}body=${encoded}`;
+
+    if (broadcastChannel === 'whatsapp') {
+      if (broadcastWindowRef.current && !broadcastWindowRef.current.closed) {
+        broadcastWindowRef.current.location.href = url;
+        broadcastWindowRef.current.focus();
+      } else {
+        broadcastWindowRef.current = window.open(url, 'wa_broadcast_window');
       }
-    });
+    } else {
+      // For SMS/Phone Link: We open the link in a hidden way to trigger the app 
+      // without refreshing the dashboard.
+      const link = document.createElement('a');
+      link.href = url;
+      link.click();
+    }
+
+    if (currentBroadcastIndex === broadcastQueue.length - 1) {
+      // Last one sent
+      const lockKey = broadcastType === 'internal'
+        ? `sem-${viewSemester}-int-${viewInternal}`
+        : `sem-${viewSemester}-summary`;
+      setBroadcastLocked(prev => ({ ...prev, [lockKey]: true }));
+      setBroadcastQueue([]);
+      setCurrentBroadcastIndex(-1);
+      setIsAutoPilot(false);
+      broadcastWindowRef.current = null;
+      alert(`Broadcast Complete! All messages have been sent via ${broadcastChannel.toUpperCase()}.`);
+    } else {
+      const nextIndex = currentBroadcastIndex + 1;
+      setCurrentBroadcastIndex(nextIndex);
+
+      if (isAutoPilot) {
+        setNextSendTimer(isFlashMode ? 2 : 4); // 2s for flash, 4s for normal
+      }
+    }
+  };
+
+  // Effect for Auto-Pilot Timer
+  React.useEffect(() => {
+    let interval: any;
+    if (isAutoPilot && nextSendTimer > 0) {
+      interval = setInterval(() => {
+        setNextSendTimer(prev => prev - 1);
+      }, 1000);
+    } else if (isAutoPilot && nextSendTimer === 0 && currentBroadcastIndex >= 0) {
+      processNextInQueue();
+    }
+    return () => clearInterval(interval);
+  }, [isAutoPilot, nextSendTimer, currentBroadcastIndex]);
+
+  const handleExportForBulk = () => {
+    const csvData = state.students
+      .filter(s => s.parentWhatsApp && s.parentWhatsApp.trim() !== '')
+      .map(s => {
+        const msg = broadcastType === 'internal'
+          ? generateMessage(s, viewSemester, viewInternal)
+          : generateSemesterSummaryMessage(s, viewSemester);
+
+        // Clean phone number: keep only digits
+        const cleanPhone = s.parentWhatsApp.replace(/\D/g, '');
+
+        // Standard Phone,Message format used by most auto-senders (No header needed for most)
+        return `${cleanPhone},"${msg.replace(/"/g, '""')}"`;
+      });
+
+    const csvContent = csvData.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Bulk_Reports_Sem${viewSemester}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    alert("Bulk File Ready!\n\n1. Open your WASender Extension\n2. Upload this CSV file\n3. Click 'Start Campaign' for 100% automatic sending.");
   };
 
   const generateSemesterSummaryMessage = (student: Student, semesterId: number) => {
-    const int1 = getDetailedReportForInternal(student.registerNumber, semesterId, 1);
-    const int2 = getDetailedReportForInternal(student.registerNumber, semesterId, 2);
+    const int1 = getDetailedReportForInternal(student.registerNumber, semesterId, 1, currentSemesterSubjects);
+    const int2 = getDetailedReportForInternal(student.registerNumber, semesterId, 2, currentSemesterSubjects);
 
     // Get Semester Grade (Uni Results)
     const gradeRecord = state.semesterGrades?.find(g => g.studentRegNo === student.registerNumber && g.semesterId === semesterId);
@@ -406,8 +531,8 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   };
 
   const generateMessage = (student: Student, semesterId: number, internalId: number) => {
-    const report = getDetailedReportForInternal(student.registerNumber, semesterId, internalId);
-    const prevInternal = internalId > 1 ? getDetailedReportForInternal(student.registerNumber, semesterId, internalId - 1) : null;
+    const report = getDetailedReportForInternal(student.registerNumber, semesterId, internalId, currentSemesterSubjects);
+    const prevInternal = internalId > 1 ? getDetailedReportForInternal(student.registerNumber, semesterId, internalId - 1, currentSemesterSubjects) : null;
 
     let trend = "";
     if (prevInternal) {
@@ -422,7 +547,8 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
   const sendWhatsApp = (student: Student) => {
     const message = generateMessage(student, viewSemester, viewInternal);
     const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/${student.parentWhatsApp}?text=${encoded}`, '_blank');
+    const phone = student.parentWhatsApp.replace(/\+/g, '').replace(/\s/g, '');
+    window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`, '_blank');
   };
 
   const handleGradeUpload = async () => {
@@ -522,7 +648,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                   <input placeholder="Reg Number" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary font-mono bg-white" value={newStudent.registerNumber} onChange={e => setNewStudent({ ...newStudent, registerNumber: e.target.value })} />
                   <input placeholder="Roll Number" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.rollNumber} onChange={e => setNewStudent({ ...newStudent, rollNumber: e.target.value })} />
                   <input placeholder="Full Name" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.name} onChange={e => setNewStudent({ ...newStudent, name: e.target.value })} />
-                  <input placeholder="WhatsApp (91...)" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.parentWhatsApp} onChange={e => setNewStudent({ ...newStudent, parentWhatsApp: e.target.value })} />
+                  <input placeholder="Parent Phone (91...)" className="px-3 py-2 border rounded-xl text-sm outline-brand-primary bg-white" value={newStudent.parentWhatsApp} onChange={e => setNewStudent({ ...newStudent, parentWhatsApp: e.target.value })} />
                   {/* Updated: Button text color is now black/dark for better contrast */}
                   <button onClick={addStudent} className="lg:col-span-4 bg-brand-primary hover:bg-brand-secondary text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold uppercase text-xs tracking-widest shadow-lg transition-all active:scale-[0.98]"><Plus className="w-5 h-5" /> Register Student</button>
                 </div>
@@ -532,14 +658,14 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
             <div className="space-y-4">
               <div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search by Reg No or Name..." className="w-full pl-10 pr-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-brand-light outline-none" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} /></div>
               <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 border-b">
+                <table className="w-full text-left text-sm font-serif">
+                  <thead className="bg-brand-deep text-white border-b">
                     <tr>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Reg No</th>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Roll No</th>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Name</th>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">WhatsApp</th>
-                      <th className="px-6 py-4 text-right font-black text-[10px] uppercase text-gray-400">Actions</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Reg No</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Roll No</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Full Name</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Contact Number</th>
+                      <th className="px-6 py-5 text-right font-black text-[10px] uppercase tracking-[0.2em]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -641,11 +767,21 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                   onChange={e => setNewStaff({ ...newStaff, subjectName: e.target.value })}
                 />
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-brand-primary/50 uppercase">Password</label>
+                <input
+                  type="password"
+                  placeholder="Set login password"
+                  className="w-full px-3 py-2 border rounded-md text-sm outline-brand-primary bg-white"
+                  value={newStaff.password}
+                  onChange={e => setNewStaff({ ...newStaff, password: e.target.value })}
+                />
+              </div>
               <div className="flex items-end gap-2">
                 <button
                   onClick={() => {
-                    if (!newStaff.name || !newStaff.subjectCode || !newStaff.subjectName) {
-                      alert("Please fill all details");
+                    if (!newStaff.name || !newStaff.subjectCode || !newStaff.subjectName || !newStaff.password) {
+                      alert("Please fill all details, including password");
                       return;
                     }
                     const staffPayload = editingStaffId ? { ...newStaff, id: editingStaffId } : newStaff;
@@ -658,7 +794,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                         updateState({ staff: [...(state.staff || []), saved] });
                         alert("Staff details added successfully!");
                       }
-                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '', password: 'staff123' });
                       setEditingStaffId(null);
                     }).catch(err => alert("Failed to save staff"));
                   }}
@@ -670,7 +806,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                 {editingStaffId && (
                   <button
                     onClick={() => {
-                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '' });
+                      setNewStaff({ name: '', semesterId: 1, subjectCode: '', subjectName: '', password: 'staff123' });
                       setEditingStaffId(null);
                     }}
                     className="bg-gray-200 text-gray-600 p-2.5 rounded-xl hover:bg-gray-300 transition-colors"
@@ -692,6 +828,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                     </div>
                     <div className="text-xs text-gray-500">
                       <p><span className="font-mono font-bold text-gray-700">{staff.subjectCode}</span> - {staff.subjectName}</p>
+                      <p className="mt-1 text-[10px] text-gray-400">Password: <span className="font-mono">{staff.password}</span></p>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -702,7 +839,8 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                           name: staff.name,
                           semesterId: staff.semesterId,
                           subjectCode: staff.subjectCode,
-                          subjectName: staff.subjectName
+                          subjectName: staff.subjectName,
+                          password: staff.password || ''
                         });
                       }}
                       className="p-1.5 text-gray-300 hover:text-brand-primary hover:bg-indigo-50 rounded-lg transition-colors"
@@ -737,31 +875,156 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
 
         {activeTab === 'attendance' && (
           <div className="space-y-6">
-            <h3 className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-2"><ClipboardList className="w-6 h-6" /> Master Attendance Entry</h3>
-            <p className="text-sm text-brand-primary bg-brand-light p-4 rounded-xl border border-brand-primary/10">Advisor marks the <b>overall</b> attendance for this internal assessment period. This percentage will be visible to parents.</p>
-            <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 border-b"><tr><th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Reg No</th><th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Name</th><th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Total Att %</th><th className="px-6 py-4 text-right font-black text-[10px] uppercase text-gray-400">Sync Status</th></tr></thead>
-                <tbody className="divide-y">
-                  {state.students.map(s => {
-                    const val = getMasterAttendance(s.registerNumber);
-                    return (<tr key={s.registerNumber} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-xs">{s.registerNumber}</td>
-                      <td className="px-6 py-4 font-bold text-gray-900">{s.name}</td>
-                      <td className="px-6 py-4">
-                        <AttendanceInput
-                          initialValue={val}
-                          onSave={(newVal) => handleMasterAttendanceChange(s.registerNumber, newVal)}
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {val !== '' ? <span className="text-green-500 bg-green-50 px-2 py-1 rounded-full text-[10px] font-black uppercase">Recorded</span> : '--'}
-                      </td>
-                    </tr>)
-                  })}
-                </tbody>
-              </table>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-2"><ClipboardList className="w-6 h-6" /> Master Attendance Entry</h3>
+              <div className="flex bg-gray-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setAttEntryMode('manual')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${attEntryMode === 'manual' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  Manual Entry
+                </button>
+                <button
+                  onClick={() => setAttEntryMode('excel')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${attEntryMode === 'excel' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  Excel Upload
+                </button>
+              </div>
             </div>
+
+            <p className="text-sm text-brand-primary bg-brand-light p-4 rounded-xl border border-brand-primary/10">Advisor marks the <b>overall</b> attendance for this internal assessment period. This percentage will be visible to parents.</p>
+
+            {attEntryMode === 'manual' ? (
+              <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white overflow-hidden">
+                <table className="w-full text-left font-serif">
+                  <thead className="bg-brand-deep text-white border-b">
+                    <tr>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Reg No</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Name</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Total Att %</th>
+                      <th className="px-6 py-5 text-right font-black text-[10px] uppercase tracking-[0.2em]">Sync Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {state.students.map(s => {
+                      const val = getMasterAttendance(s.registerNumber);
+                      return (<tr key={s.registerNumber} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-xs">{s.registerNumber}</td>
+                        <td className="px-6 py-4 font-bold text-gray-900">{s.name}</td>
+                        <td className="px-6 py-4">
+                          <AttendanceInput
+                            initialValue={val}
+                            onSave={(newVal) => handleMasterAttendanceChange(s.registerNumber, newVal)}
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {val !== '' ? <span className="text-green-500 bg-green-50 px-2 py-1 rounded-full text-[10px] font-black uppercase">Recorded</span> : '--'}
+                        </td>
+                      </tr>)
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-gray-100 text-center space-y-6">
+                <Upload className="w-16 h-16 text-brand-primary/20 mx-auto" />
+                <div className="max-w-md mx-auto">
+                  <h4 className="text-lg font-black text-gray-900">Upload Attendance via Excel</h4>
+                  <p className="text-gray-500 text-sm mt-2">Download the template, fill in the attendance percentages for each student, and upload it back.</p>
+                </div>
+
+                <div className="flex flex-col md:flex-row justify-center items-center gap-4">
+                  <button
+                    onClick={() => {
+                      const data = state.students.map(s => ({
+                        'Register Number': s.registerNumber,
+                        'Name': s.name,
+                        'Attendance Percentage': getMasterAttendance(s.registerNumber) || 0
+                      }));
+                      const ws = XLSX.utils.json_to_sheet(data);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+                      XLSX.writeFile(wb, `Attendance_Sem${viewSemester}_Int${viewInternal}.xlsx`);
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl active:scale-95"
+                  >
+                    <Download className="w-4 h-4" /> Download Template
+                  </button>
+
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="att-excel-upload"
+                      accept=".xlsx, .xls"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploadLoading(true);
+                        const reader = new FileReader();
+                        reader.onload = async (evt) => {
+                          try {
+                            const bstr = evt.target?.result;
+                            const workbook = XLSX.read(bstr, { type: 'binary' });
+                            const sheetName = workbook.SheetNames[0];
+                            const sheet = workbook.Sheets[sheetName];
+                            const json = XLSX.utils.sheet_to_json(sheet) as any[];
+
+                            const results = [];
+                            for (const row of json) {
+                              const keys = Object.keys(row);
+                              const regNoKey = keys.find(k => k.toLowerCase().includes('reg') || k.toLowerCase().includes('roll'));
+                              const valKey = keys.find(k => k.toLowerCase().includes('attend') || k.toLowerCase().includes('percentage') || k.toLowerCase().includes('mark'));
+
+                              if (regNoKey && valKey) {
+                                const regNo = String(row[regNoKey]).trim();
+                                const value = String(row[valKey]).trim();
+                                if (value) {
+                                  const saved = await handleMasterAttendanceChange(regNo, value, true);
+                                  if (saved) results.push(saved);
+                                }
+                              }
+                            }
+
+                            if (results.length > 0) {
+                              const existingIds = new Set(results.map(r => r.studentRegNo));
+                              const remaining = state.masterAttendance.filter(ma => !(
+                                existingIds.has(ma.studentRegNo) &&
+                                Number(ma.semesterId) === Number(viewSemester) &&
+                                Number(ma.internalId) === Number(viewInternal)
+                              ));
+                              updateState({ masterAttendance: [...remaining, ...results] });
+                            }
+                            setAttSuccessMsg(`${results.length} records processed successfully!`);
+                            setTimeout(() => setAttSuccessMsg(''), 5000);
+                          } catch (err) {
+                            console.error(err);
+                            alert("Failed to parse Excel file.");
+                          } finally {
+                            setUploadLoading(false);
+                            e.target.value = '';
+                          }
+                        };
+                        reader.readAsBinaryString(file);
+                      }}
+                    />
+                    <label
+                      htmlFor="att-excel-upload"
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 cursor-pointer ${uploadLoading ? 'bg-gray-300 cursor-not-allowed' : 'bg-brand-primary text-white hover:bg-brand-secondary'}`}
+                    >
+                      <Upload className="w-4 h-4" /> {uploadLoading ? 'Processing...' : 'Upload Excel'}
+                    </label>
+                  </div>
+                </div>
+
+                {attSuccessMsg && (
+                  <div className="mt-4 p-3 bg-green-50 text-green-600 rounded-xl text-xs font-black animate-bounce">
+                    {attSuccessMsg}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -817,20 +1080,21 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                 <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Subject Wise Performance (Internal {viewInternal})</h4>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(() => {
-                      const relevantSubjects = state.subjects.filter(s => Number(s.semesterId) === Number(viewSemester));
-                      return relevantSubjects.map(sub => {
-                        const subMarks = state.marks.filter(m => (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === Number(viewInternal));
-                        const avg = subMarks.length > 0 ? (subMarks.reduce((a, b) => a + b.marks, 0) / subMarks.length) : 0;
-                        return { name: sub.code, AvgMark: parseFloat(avg.toFixed(2)), FullName: sub.name };
-                      });
-                    })()}>
+                    <BarChart data={currentSemesterSubjects.map(sub => {
+                      const subMarks = state.marks.filter(m => (m.subjectId === sub.id || m.subjectId === sub.code) && Number(m.internalId) === Number(viewInternal));
+                      const avg = subMarks.length > 0 ? (subMarks.reduce((a, b) => a + b.marks, 0) / subMarks.length) : 0;
+                      return { name: sub.code, AvgMark: parseFloat(avg.toFixed(2)), FullName: sub.name };
+                    })}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                       <YAxis domain={[0, 100]} fontSize={10} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                       <Legend />
-                      <Bar dataKey="AvgMark" fill="#046e84" radius={[6, 6, 0, 0]} barSize={30} name="Avg Score" />
+                      <Bar dataKey="AvgMark" radius={[6, 6, 0, 0]} barSize={30} name="Avg Score">
+                        {currentSemesterSubjects.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -856,7 +1120,10 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                       <YAxis domain={[0, 100]} fontSize={10} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                       <Legend />
-                      <Bar dataKey="AvgAtt" fill="#fbbf24" radius={[6, 6, 0, 0]} barSize={40} name="Avg Attendance %" />
+                      <Bar dataKey="AvgAtt" radius={[6, 6, 0, 0]} barSize={40} name="Avg Attendance %">
+                        <Cell fill="#046e84" />
+                        <Cell fill="#fbbf24" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -892,13 +1159,13 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                 <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded border">Avg Marks Int 1 | Int 2</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white border-b">
+                <table className="w-full text-left text-xs font-serif">
+                  <thead className="bg-brand-deep text-white border-b">
                     <tr>
-                      <th className="px-6 py-4 font-black text-gray-400 uppercase tracking-wider text-[10px]">Reg No</th>
-                      <th className="px-6 py-4 font-black text-gray-400 uppercase tracking-wider text-[10px]">Name</th>
-                      {state.subjects.filter(s => s.semesterId === viewSemester).map(sub => (
-                        <th key={sub.id} className="px-4 py-4 font-black text-gray-600 uppercase text-center border-l bg-gray-50/30 whitespace-nowrap min-w-[120px]">
+                      <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-[10px]">Reference ID</th>
+                      <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-[10px]">Student Identity</th>
+                      {currentSemesterSubjects.map(sub => (
+                        <th key={sub.id} className="px-5 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center border-l border-white/10 whitespace-nowrap min-w-[130px]">
                           {sub.name}
                         </th>
                       ))}
@@ -911,7 +1178,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                         <tr key={item.student.registerNumber} className="hover:bg-brand-light/10 transition-colors">
                           <td className="px-6 py-4 font-mono font-bold text-brand-primary">{item.student.registerNumber}</td>
                           <td className="px-6 py-4 font-bold text-gray-800">{item.student.name}</td>
-                          {state.subjects.filter(s => Number(s.semesterId) === viewSemester).sort((a, b) => a.code.localeCompare(b.code)).map(sub => {
+                          {currentSemesterSubjects.map(sub => {
                             const m1 = item.int1.subjectBreakdown.find((b: any) => b.code === sub.code)?.mark;
                             const m2 = item.int2.subjectBreakdown.find((b: any) => b.code === sub.code)?.mark;
 
@@ -939,31 +1206,31 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
             </div>
 
             <div className="overflow-x-auto border rounded-3xl shadow-xl bg-white scrollbar-thin scrollbar-thumb-brand-light">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-brand-accent text-white border-b-2 border-brand-primary">
+              <table className="w-full text-left text-xs font-serif">
+                <thead className="bg-brand-deep text-white border-b">
                   <tr>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest sticky left-0 bg-brand-accent shadow-[2px_0_5px_rgba(0,0,0,0.1)] z-10">Reg No</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest">Roll No</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest">Name</th>
-                    {state.subjects.filter(s => s.semesterId === viewSemester).map(sub => (
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em] sticky left-0 bg-brand-deep shadow-xl z-10">Reg No</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em]">Roll No</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em]">Full Name</th>
+                    {currentSemesterSubjects.map(sub => (
                       <React.Fragment key={sub.id}>
-                        <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[150px] bg-white/10 whitespace-nowrap">
+                        <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-center min-w-[150px] bg-white/5 whitespace-nowrap">
                           <div className="flex flex-col">
                             <span>{sub.name}</span>
-                            <span className="text-[9px] opacity-70">({sub.code}) Marks</span>
+                            <span className="text-[9px] opacity-70">({sub.code})</span>
                           </div>
                         </th>
-                        {isEvenInternal && <th className="px-6 py-5 font-black uppercase tracking-widest text-center min-w-[120px] bg-emerald-800/20 text-emerald-100 whitespace-nowrap">{sub.name} (Lab)</th>}
+                        {isEvenInternal && <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-center min-w-[120px] bg-emerald-800/20 text-emerald-100 whitespace-nowrap border-l border-white/10">{sub.name} (Lab)</th>}
                       </React.Fragment>
                     ))}
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-center bg-brand-deep">Total</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-center bg-brand-deep">Avg</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-center bg-brand-deep">Att %</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-center bg-black/20">Total</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-center bg-black/30">Avg %</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-[0.2em] text-center bg-black/40">Att %</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {state.students.map((s, idx) => {
-                    const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
+                    const report = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal, currentSemesterSubjects);
                     return (
                       <tr key={s.registerNumber} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-brand-light/20'} hover:bg-brand-light/50 transition-colors`}>
                         <td className="px-6 py-4 font-mono font-black text-brand-primary border-r sticky left-0 bg-inherit shadow-[2px_0_5px_rgba(0,0,0,0.02)] z-10">{s.registerNumber}</td>
@@ -996,7 +1263,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={broadcastSemesterSummary}
+                  onClick={startSemesterBroadcast}
                   disabled={broadcastLocked[`sem-${viewSemester}-summary`]}
                   className={`${broadcastLocked[`sem-${viewSemester}-summary`] ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-deep hover:bg-brand-primary'} text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex items-center gap-2`}
                 >
@@ -1004,7 +1271,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                   {broadcastLocked[`sem-${viewSemester}-summary`] ? 'Summary Sent' : 'Broadcast Semester Summary'}
                 </button>
                 <button
-                  onClick={broadcastToAll}
+                  onClick={startInternalBroadcast}
                   className={`${broadcastLocked[`sem-${viewSemester}-int-${viewInternal}`] ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-primary hover:bg-brand-secondary'} text-white px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95`}
                   disabled={broadcastLocked[`sem-${viewSemester}-int-${viewInternal}`]}
                 >
@@ -1015,7 +1282,7 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {state.students.map(s => {
-                const stats = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal);
+                const stats = getDetailedReportForInternal(s.registerNumber, viewSemester, viewInternal, currentSemesterSubjects);
                 return (
                   <div key={s.registerNumber} className="p-5 border rounded-2xl flex flex-col justify-between hover:shadow-xl transition-all bg-white border-gray-100 hover:border-brand-primary/20">
                     <div>
@@ -1215,19 +1482,19 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
                   </select>
                 </div>
               </div>
-              <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 border-b">
+              <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white overflow-hidden">
+                <table className="w-full text-left text-sm font-serif">
+                  <thead className="bg-brand-deep text-white border-b">
                     <tr>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Student Reg No</th>
-                      <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400 border-x text-center">Semester</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Student Identity</th>
+                      <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em] border-x border-white/10 text-center">Semester</th>
                       {gradeViewSubject === 'all' ? (
-                        <th className="px-6 py-4 font-black text-[10px] uppercase text-gray-400">Grades Summary</th>
+                        <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em]">Grades Summary</th>
                       ) : (
-                        <th className="px-6 py-4 font-black text-[10px] uppercase text-brand-primary bg-brand-light/50 border-x text-center">{getSubjectName(gradeViewSubject)} ({gradeViewSubject})</th>
+                        <th className="px-6 py-5 font-black text-[10px] uppercase tracking-[0.2em] bg-white/10 border-x border-white/10 text-center">{getSubjectName(gradeViewSubject)} ({gradeViewSubject})</th>
                       )}
-                      <th className="px-6 py-4 text-right font-black text-[10px] uppercase text-gray-400">Status</th>
-                      <th className="px-6 py-4 text-right font-black text-[10px] uppercase text-gray-400">Display</th>
+                      <th className="px-6 py-5 text-right font-black text-[10px] uppercase tracking-[0.2em]">Status</th>
+                      <th className="px-6 py-5 text-right font-black text-[10px] uppercase tracking-[0.2em]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -1360,8 +1627,136 @@ const AdvisorDashboard: React.FC<AdvisorDashboardProps> = ({ state, updateState 
             </div>
           </div>
         )}
+
+        {/* Broadcast Queue Modal */}
+        {broadcastQueue.length > 0 && currentBroadcastIndex >= 0 && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className={`bg-white rounded-[40px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-300 border-t-8 ${broadcastChannel === 'sms' ? 'border-blue-500' : 'border-green-500'}`}>
+
+              {/* Header */}
+              <div className={`${broadcastChannel === 'whatsapp' ? 'bg-brand-primary' : 'bg-blue-600'} p-8 text-white relative transition-colors`}>
+                <button
+                  onClick={() => { setBroadcastQueue([]); setCurrentBroadcastIndex(-1); setIsAutoPilot(false); }}
+                  className="absolute top-6 right-6 p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                    {broadcastChannel === 'whatsapp' ? <MessageSquare className="w-8 h-8 text-brand-accent" /> : <MessageCircle className="w-8 h-8 text-blue-200" />}
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-2xl font-black leading-tight">Automation Center</h3>
+                    <p className="opacity-70 font-bold text-[10px] tracking-widest uppercase">Reporting to {broadcastQueue.length} Parents</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-8 pt-6 pb-2">
+                <div className="flex bg-gray-100 p-1 rounded-2xl">
+                  <button
+                    onClick={() => setBroadcastChannel('whatsapp')}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${broadcastChannel === 'whatsapp' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400'}`}
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => setBroadcastChannel('sms')}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${broadcastChannel === 'sms' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}
+                  >
+                    Direct SMS
+                  </button>
+                </div>
+              </div>
+              <div className="p-8 space-y-6">
+                {/* 100% AUTOMATIC SECTION (RECOMMENDED) */}
+                <div className="bg-brand-light/50 p-6 rounded-3xl border-2 border-brand-primary/20 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-brand-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Recommended</div>
+                    <span className="text-xs font-black text-brand-primary uppercase tracking-tight">100% Fully Automatic (Zero Clicking)</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+                    To send all messages <b>without clicking "Send" for every student</b>, download this file and upload it to your bulk sender extension (like WASender).
+                  </p>
+                  <button
+                    onClick={handleExportForBulk}
+                    className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-brand-secondary transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 group"
+                  >
+                    <Download className="w-5 h-5 animate-bounce" />
+                    Download File for Auto-Sender
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                  <div className="relative flex justify-center text-[10px] uppercase font-black text-gray-300 px-4 bg-white">Or Use Semi-Auto (Requires Enter key)</div>
+                </div>
+
+                {/* SEMI-AUTO SECTION */}
+                {isAutoPilot ? (
+                  <div className="py-6 bg-gray-50 text-brand-primary rounded-3xl font-black uppercase text-xs tracking-widest flex flex-col items-center gap-2 border border-gray-100 shadow-inner">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                      <span>Auto-Pilot: {broadcastQueue[currentBroadcastIndex].student.name}</span>
+                    </div>
+                    <div className="text-[32px] font-black text-brand-deep leading-none my-1">{nextSendTimer}s</div>
+                    <div className="text-[10px] text-gray-400 opacity-80 normal-case font-medium px-8 text-center">
+                      Keep the message window open and press <b>ENTER</b> when the text appears.
+                    </div>
+                    <button
+                      onClick={() => setIsAutoPilot(false)}
+                      className="mt-4 px-6 py-2 bg-white text-red-500 rounded-full text-[10px] hover:bg-red-50 transition-all font-black border border-red-100 shadow-sm"
+                    >
+                      STOP BROADCAST
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => { setIsFlashMode(false); setIsAutoPilot(true); processNextInQueue(); }}
+                      className="py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-brand-primary/30 transition-all flex flex-col items-center justify-center gap-2 group"
+                    >
+                      <TrendingUp className="w-5 h-5 text-gray-400 group-hover:text-brand-primary" />
+                      Standard Mode
+                    </button>
+                    <button
+                      onClick={() => { setIsFlashMode(true); setIsAutoPilot(true); processNextInQueue(); }}
+                      className="py-4 bg-white border-2 border-brand-primary/20 text-brand-primary rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-brand-light transition-all flex flex-col items-center justify-center gap-2 group"
+                    >
+                      <Send className="w-5 h-5 text-brand-primary animate-pulse" />
+                      Flash Mode
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={handleExportForBulk}
+                  className="w-full py-2.5 bg-white text-blue-600 border border-blue-200 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
+                >
+                  Download File for Extension
+                </button>
+              </div>
+
+              {!isAutoPilot && (
+                <button
+                  onClick={() => {
+                    setBroadcastQueue([]);
+                    setCurrentBroadcastIndex(-1);
+                    setIsAutoPilot(false);
+                  }}
+                  className="w-full py-3 text-gray-400 font-black uppercase text-[10px] tracking-widest hover:text-red-500 transition-all"
+                >
+                  Cancel and Close
+                </button>
+              )}
+            </div>
+
+            <div className="text-[9px] text-gray-400 leading-relaxed italic space-y-1 bg-gray-50 p-4 rounded-2xl border">
+              <p className="flex gap-2"><b>Tip:</b> If nothing happens, check the <b>top-right</b> of your browser url bar and click <b>"Allow Always Popups"</b>.</p>
+            </div>
+          </div>
+        )}
       </div>
-    </div >
+    </div>
   );
 };
 
